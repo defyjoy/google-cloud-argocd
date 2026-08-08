@@ -1,0 +1,27 @@
+apiVersion: v2
+name: nats
+description: A Helm chart for NATS - Cloud native messaging system
+
+type: application
+version: 0.1.0
+appVersion: "2.10.7"
+
+dependencies:
+  - name: nats
+    version: 2.12.6
+    repository: https://nats-io.github.io/k8s/helm/charts
+    condition: nats.enabled
+
+keywords:
+  - nats
+  - messaging
+  - cloud-native
+  - pub-sub
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/nats-io/nats-server

@@ -1,0 +1,53 @@
+image:
+  repository: harbor.workquark.org/alarmify/alarmify-ui
+  tag: v0.0.115
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+containerPort: 3000
+servicePort: 80
+
+imagePullSecrets:
+  - name: alarmify-ui-registry
+
+backendUrls:
+  incidentApi: "http://dev-alarmify-incident-api.alarmify-incident-api.svc"
+  ingestApi: "http://dev-alarmify-ingest-api.alarmify-ingest-api.svc"
+  scheduleApi: "http://dev-alarmify-schedule-api.alarmify-schedule-api.svc"
+  identityApi: "http://dev-alarmify-identity-api.alarmify-identity-api.svc"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: alarmify/dev/harbor
+  appVarsKeys:
+    - alarmify/dev/alarmify-ui
+  secretKeyRefs:
+    - secretKey: ZITADEL_ISSUER
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_ISSUER
+    - secretKey: ZITADEL_PROJECT_ID
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_PROJECT_ID
+    - secretKey: ZITADEL_CLIENT_ID
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_UI_CLIENT_ID
+
+httproute:
+  path: /
+  gatewayName: gateway
+  gatewayNamespace: gateway-system
+  gatewayListener: http
+  externalDns:
+    class: cloudflare
+

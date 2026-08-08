@@ -1,0 +1,51 @@
+enabled: true
+
+falco:
+  driver:
+    enabled: true
+    kind: ebpf
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  serviceAccount:
+    create: true
+    name: falco
+
+  rbac:
+    create: true
+
+  config:
+    rulesFile:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml

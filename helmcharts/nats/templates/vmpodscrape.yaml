@@ -1,0 +1,17 @@
+{{- if .Values.nats.promExporter.enabled }}
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: {{ include "wrapper.nats.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.nats.nameOverride | default "nats" }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: nats
+  podMetricsEndpoints:
+    - port: prom-metrics
+      interval: 30s
+{{- end }}

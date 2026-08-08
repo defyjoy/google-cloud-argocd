@@ -1,0 +1,118 @@
+version: '3'
+
+# Argo CD bootstrap and cluster helper tasks (split: taskfiles/cluster, vault, argocd).
+#
+# Run from the repository root:
+#   cd /path/to/ArgoCD
+#
+# Prerequisites:
+#   - Task (task runner): https://taskfile.dev/installation/
+#   - kubectl, helm
+#
+# Usage:
+#   task --list
+#   task bootstrap
+#
+# Shell logic: {{.REPO_ROOT}}/scripts
+# Vault init output: {{.BOOTSTRAP_STATE_DIR}}/hashicorp-vault-init.json (gitignored).
+
+vars:
+  # Entry Taskfile dir (repo root). TASKFILE_DIR inside included taskfiles points at taskfiles/.
+  REPO_ROOT: "{{.ROOT_DIR}}"
+  ARGOCD_NAMESPACE: argocd
+  ARGOCD_CHART_PATH: helmcharts/argocd
+  ARGOCD_APPS_PATH: helmcharts/argocd-apps
+  BOOTSTRAP_STATE_DIR: helmcharts/argocd/bootstrap
+  PORT: 8080
+  VAULT_NAMESPACE: vault
+  VAULT_STATEFULSET_NAME: local-vault
+  VAULT_CLUSTER_PREFIX: local
+  VAULT_REPLICAS: 3
+  # KV v2 mount and the Vault env segment (= Argo CD cluster name; local == management).
+  VAULT_KV_MOUNT: kv
+  VAULT_ENV: local
+  CILIUM_CHART_PATH: helmcharts/cilium
+  CILIUM_NAMESPACE: kube-system
+  CILIUM_RELEASE_NAME: cilium
+  CILIUM_VALUES: values/local.yaml
+  GATEWAY_API_VERSION: v1.5.1
+  GATEWAY_API_CHANNEL: experimental
+  ARGOCD_GIT_REPO_KEY: defyjoy-argocd
+  ARGOCD_GIT_REPO_URL: git@github.com:defyjoy/argocd-google-cloud.git
+  ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/github"
+
+includes:
+  cluster:
+    taskfile: taskfiles/cluster.yaml
+    flatten: true
+  vault:
+    taskfile: taskfiles/vault.yaml
+    flatten: true
+  argocd:
+    taskfile: taskfiles/argocd.yaml
+    flatten: true
+
+tasks:
+  default:
+    desc: 'List available tasks (run task with no task name)'
+    cmds:
+      - cmd: 'echo "Tip: run task bootstrap for full ArgoCD install + self-manage + app-of-apps"'
+      - cmd: echo ""
+      # Explicit Taskfile so nested `task` always merges includes; --list-all includes tasks without desc
+      - cmd: 'task --list-all --taskfile "{{.REPO_ROOT}}/Taskfile.yml"'
+
+  lint:
+    desc: Run all repo lint checks
+    cmds:
+      - task: lint:values
+
+  lint:values:
+    desc: 'Fail if any helmcharts values file contains a comment (CLAUDE.md -> Helm chart conventions)'
+    dir: "{{.REPO_ROOT}}"
+    cmds:
+      - python3 scripts/helm/values-comments.py --check
+
+  lint:values:fix:
+    desc: Strip comments from values files (refuses to write if the parsed YAML would change)
+    dir: "{{.REPO_ROOT}}"
+    cmds:
+      - python3 scripts/helm/values-comments.py --fix
+
+  hooks:install:
+    desc: Symlink scripts/git-hooks/* into .git/hooks (pre-commit runs lint:values on staged values files)
+    dir: "{{.REPO_ROOT}}"
+    cmds:
+      - mkdir -p .git/hooks
+      - |
+        for hook in scripts/git-hooks/*; do
+          name="$(basename "$hook")"
+          chmod +x "$hook"
+          ln -sf "../../$hook" ".git/hooks/$name"
+          echo "installed .git/hooks/$name -> $hook"
+        done
+
+  docs:install:
+    desc: Create .venv-docs and pip-install MkDocs Material + plugins (Homebrew mkdocs alone is not enough)
+    cmds:
+      - test -d "{{.REPO_ROOT}}/.venv-docs" || python3 -m venv "{{.REPO_ROOT}}/.venv-docs"
+      - '"{{.REPO_ROOT}}/.venv-docs/bin/pip" install -r "{{.REPO_ROOT}}/docs/requirements-docs.txt"'
+
+  docs:serve:
+    desc: Serve documentation at http://127.0.0.1:8000 (uses .venv-docs)
+    dir: "{{.REPO_ROOT}}"
+    deps:
+      - docs:install
+    env:
+      NO_MKDOCS_2_WARNING: "1"
+    cmds:
+      - '"{{.REPO_ROOT}}/.venv-docs/bin/mkdocs" serve'
+
+  docs:build:
+    desc: Build static documentation site to ./site/
+    dir: "{{.REPO_ROOT}}"
+    deps:
+      - docs:install
+    env:
+      NO_MKDOCS_2_WARNING: "1"
+    cmds:
+      - '"{{.REPO_ROOT}}/.venv-docs/bin/mkdocs" build'

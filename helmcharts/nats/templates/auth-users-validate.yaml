@@ -1,0 +1,15 @@
+{{- /* Fail closed: NATS without authorization accepts any client. */ -}}
+{{- if and .Values.nats (default true .Values.nats.enabled) }}
+{{- $auth := .Values.nats.authUsers }}
+{{- if not $auth }}
+{{- fail "nats.authUsers is required: this chart defaults to authenticated clients only. Restore nats.authUsers (see values.yaml) or disable the release with nats.enabled: false." }}
+{{- else if not $auth.enabled }}
+{{- if not $auth.insecureAllowAnonymous }}
+{{- fail "nats.authUsers.enabled is false, which would allow anonymous NATS clients. For local/dev only, set nats.authUsers.insecureAllowAnonymous: true together with enabled: false." }}
+{{- end }}
+{{- else }}
+{{- if and (not $auth.existingSecret) (not (gt (len ($auth.clients | default list)) 0)) }}
+{{- fail "nats.authUsers.clients must not be empty when authUsers.enabled is true and existingSecret is unset." }}
+{{- end }}
+{{- end }}
+{{- end }}

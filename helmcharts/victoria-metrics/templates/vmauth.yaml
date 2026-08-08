@@ -1,0 +1,72 @@
+{{- /*
+Auth proxy in front of vminsert for cross-cluster remote-write (dev -> management, Phase 6).
+
+Confirmed live against victoria-metrics-operator v0.73.1 + VictoriaMetrics cluster docs
+(2026-07-16): vminsert/vmselect have NO built-in HTTP auth flags -- the operator's
+VMCluster.spec.vminsert CRD has no auth field at all (x-kubernetes-preserve-unknown-fields,
+verified via `kubectl get crd vmagents.operator.victoriametrics.com` and the operator's Go
+source, api/operator/v1beta1/vmcluster_types.go: VMInsert embeds CommonAppsParams, no auth
+field). Official guidance: "External clients must access vminsert and vmselect via auth proxy
+such as vmauth or vmgateway." This corrects the earlier (2026-07-15) scaffolding's assumption
+of a `-httpAuth.username`/`-httpAuth.password` flag pair on vminsert itself -- no such flags
+exist on the cluster binaries. VMAuth is a native operator CRD (`vmauths.operator.victoriametrics.com`),
+so this needs no new component outside what's already installed.
+
+Only relevant where vmcluster runs (management) -- dev has no local vminsert to protect.
+*/ -}}
+{{- if and .Values.vmcluster.enabled .Values.vmauth.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAuth
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: vmauth
+    app.kubernetes.io/managed-by: Helm
+spec:
+  # Missing from this template originally (2026-07-16 scaffolding) -- unlike vmagent/vmalert/
+  # vmcluster's templates, which all set this. Confirmed live 2026-07-19: without it, the
+  # operator's auto-generated Deployment has no securityContext at all, and the
+  # `victoria-metrics` namespace enforces `restricted` PodSecurity -- the Deployment gets
+  # rejected outright (VMAuth CR status stuck on "expanding", operator logs:
+  # "would violate PodSecurity \"restricted:latest\"..."). This flag makes the operator apply
+  # the same hardened securityContext vmagent/vmalert/vmcluster's pods already run with.
+  useStrictSecurity: true
+  # Pinned explicitly rather than relying on the operator's implicit default -- not
+  # confirmed from source, and the TCPRoute backendRef (vminsert-tcproute.yaml) needs an
+  # exact port to target.
+  port: {{ .Values.vmauth.port | quote }}
+  replicaCount: {{ .Values.vmauth.replicaCount }}
+  resources:
+    {{- toYaml .Values.vmauth.resources | nindent 4 }}
+  selectAllByDefault: false
+  userSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: vmauth-user
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMUser
+metadata:
+  name: {{ .Release.Name }}-vminsert-remote-write
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: vmauth-user
+    app.kubernetes.io/managed-by: Helm
+spec:
+  # TokenRef, not Password/PasswordRef -- bearer-token auth end to end (matches the plan
+  # doc §23 wording "vminsert bearer-token auth" and VMAgentRemoteWriteSpec.bearerTokenSecret
+  # on the sending side, see vmagent.yaml). Secret populated by remote-write-token-external-secret.yaml.
+  tokenRef:
+    name: {{ .Values.vmauth.tokenSecretName }}
+    key: {{ .Values.vmauth.tokenSecretKey }}
+  targetRefs:
+    - static:
+        url: http://vminsert-{{ .Release.Name }}.{{ .Release.Namespace }}.svc:8480
+      paths:
+        - "/insert/.*"
+{{- end }}

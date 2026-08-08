@@ -1,0 +1,23 @@
+{
+  "unseal_keys_b64": [
+    "REPLACE_WITH_UNSEAL_KEY_1_BASE64",
+    "REPLACE_WITH_UNSEAL_KEY_2_BASE64",
+    "REPLACE_WITH_UNSEAL_KEY_3_BASE64",
+    "REPLACE_WITH_UNSEAL_KEY_4_BASE64",
+    "REPLACE_WITH_UNSEAL_KEY_5_BASE64"
+  ],
+  "unseal_keys_hex": [
+    "REPLACE_WITH_UNSEAL_KEY_1_HEX",
+    "REPLACE_WITH_UNSEAL_KEY_2_HEX",
+    "REPLACE_WITH_UNSEAL_KEY_3_HEX",
+    "REPLACE_WITH_UNSEAL_KEY_4_HEX",
+    "REPLACE_WITH_UNSEAL_KEY_5_HEX"
+  ],
+  "unseal_shares": 5,
+  "unseal_threshold": 3,
+  "recovery_keys_b64": [],
+  "recovery_keys_hex": [],
+  "recovery_keys_shares": 0,
+  "recovery_keys_threshold": 0,
+  "root_token": "hvs.REPLACE_WITH_ROOT_TOKEN"
+}

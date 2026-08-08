@@ -1,0 +1,73 @@
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: rancher
+#   namespace: argocd
+#   finalizers:
+#     - resources-finalizer.argocd.argoproj.io
+#   labels:
+#     app.kubernetes.io/name: rancher
+#     app.kubernetes.io/component: management-platform
+#   annotations:
+#     argocd.argoproj.io/sync-wave: "5"
+# spec:
+#   project: default
+#   source:
+#     repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+#     targetRevision: HEAD
+#     path: helmcharts/rancher
+#     helm:
+#       valueFiles:
+#         - values.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: cattle-system
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#       allowEmpty: false
+#     syncOptions:
+#       - CreateNamespace=true
+#       - RespectIgnoreDifferences=true
+#       - Replace=true
+#       - SkipDryRunOnMissingResource=true
+#     retry:
+#       limit: 5
+#       backoff:
+#         duration: 5s
+#         factor: 2
+#         maxDuration: 3m
+#   revisionHistoryLimit: 10
+#   ignoreDifferences:
+#     - group: admissionregistration.k8s.io
+#       kind: ValidatingWebhookConfiguration
+#       jqPathExpressions:
+#         - .webhooks[]?.clientConfig.caBundle
+#     - group: admissionregistration.k8s.io
+#       kind: MutatingWebhookConfiguration
+#       jqPathExpressions:
+#         - .webhooks[]?.clientConfig.caBundle
+#     - group: ""
+#       kind: Secret
+#       name: rancher-ca
+#       jqPathExpressions:
+#         - .data
+#     - group: ""
+#       kind: Secret
+#       name: tls-rancher-ingress
+#       jqPathExpressions:
+#         - .data
+#     - group: ""
+#       kind: Secret
+#       name: rancher
+#       jqPathExpressions:
+#         - .data.token
+#     # Ignore Helm hook resources - they are managed by Helm hooks, not ArgoCD
+#     - group: rbac.authorization.k8s.io
+#       kind: ClusterRole
+#       name: rancher-pre-upgrade
+#     - group: rbac.authorization.k8s.io
+#       kind: ClusterRoleBinding
+#       name: rancher-pre-upgrade

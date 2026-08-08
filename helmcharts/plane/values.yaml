@@ -1,0 +1,82 @@
+httproute:
+  parentRef:
+    name: gateway
+    namespace: gateway-system
+  hostnames:
+    - plane.workquark.org
+    - plane.home.arpa
+  externalDns:
+    hostname: plane.workquark.org
+    class: cloudflare
+
+docstoreBucket: uploads
+
+plane-ce:
+  planeVersion: v1.3.1
+
+  ingress:
+    enabled: false
+    appHost: plane.workquark.org
+    minioHost: ""
+    rabbitmqHost: ""
+    ingressClass: "nginx"
+
+  ssl:
+    tls_secret_name: ""
+    createIssuer: false
+    generateCerts: false
+
+  postgres:
+    local_setup: true
+    storageClass: standard-rwo
+    volumeSize: 5Gi
+
+  redis:
+    local_setup: true
+    storageClass: standard-rwo
+    volumeSize: 1Gi
+
+  rabbitmq:
+    local_setup: true
+    storageClass: standard-rwo
+    volumeSize: 1Gi
+    default_user: plane
+    default_password: "plane-rabbit-CHANGE-ME"
+
+  minio:
+    local_setup: true
+    storageClass: standard-rwo
+    volumeSize: 20Gi
+    root_user: plane
+    root_password: "plane-minio-CHANGE-ME"
+    env:
+      minio_endpoint_ssl: false
+
+  env:
+    pgdb_username: plane
+    pgdb_password: "plane-pg-CHANGE-ME"
+    pgdb_name: plane
+
+    docstore_bucket: uploads
+    doc_upload_size_limit: "5242880"
+
+    secret_key: "CHANGE-ME-run-openssl-rand-hex-32-here"
+    live_server_secret_key: "CHANGE-ME-run-openssl-rand-hex-32-here"
+
+    api_key_rate_limit: "60/minute"
+    default_cluster_domain: cluster.local
+
+  web:
+    replicas: 1
+  space:
+    replicas: 1
+  admin:
+    replicas: 1
+  live:
+    replicas: 1
+  api:
+    replicas: 1
+  worker:
+    replicas: 1
+  beatworker:
+    replicas: 1

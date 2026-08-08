@@ -1,0 +1,18 @@
+apiVersion: v2
+name: plane
+description: A Helm wrapper chart for Plane (Community Edition) — self-hosted project management
+type: application
+
+# Wrapper chart version — bump on any change to this chart or its values.
+version: 0.1.0
+
+# Application version tracks the Plane Community Edition release we deploy
+# (matches the plane-ce subchart appVersion below and .Values.plane-ce.planeVersion).
+appVersion: "1.3.1"
+
+dependencies:
+  # Community Edition chart from Plane's official Helm repo.
+  # Enterprise edition would be plane/plane-enterprise from the same host.
+  - name: plane-ce
+    version: "1.6.0"
+    repository: https://helm.plane.so

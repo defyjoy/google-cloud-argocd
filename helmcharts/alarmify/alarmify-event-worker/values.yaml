@@ -1,0 +1,35 @@
+image:
+  repository: harbor.workquark.org/alarmify/alarmify-event-worker
+  tag: v0.0.12
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+environment: prod
+debug: "true"
+
+nats:
+  url: "nats://local-nats.nats.svc.cluster.local:4222"
+  stream: "ALARMIFY_EVENTS_RAW"
+  consumer: "alarmify-event-processor"
+  user: "alarmify-event-processor"
+  mode: "jetstream"
+  subject: "alarmify.events.raw.*"
+
+imagePullSecrets:
+  - name: alarmify-event-worker-registry
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: alarmify/dev/harbor
+  appVarsKeys:
+    - alarmify/dev/alarmify-event-worker
+    - alarmify/dev/postgres/credentials
+  dbHostOverride: ""

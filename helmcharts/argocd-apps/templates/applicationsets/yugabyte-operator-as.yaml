@@ -1,0 +1,74 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: yugabyte
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: yugabyte
+    app.kubernetes.io/instance: yugabyte
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          yugabyte: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-yugabyte"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: yugabyte
+        app.kubernetes.io/instance: yugabyte
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/yugabyte
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: yugabyte
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "yugabyte"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

@@ -1,0 +1,117 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: backstage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"  # Deploy after infrastructure (wave 1) and operators (wave 2)
+spec:
+  # Cluster generator - creates an Application for each cluster with the label
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            backstage: "true"
+        # Optional: Add cluster-specific values
+        # values:
+        #   replicaCount: 'metadata.labels.backstage-replicas'
+        #   domain: 'metadata.labels.backstage-domain'
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  # Template for the Application resource
+  template:
+    metadata:
+      # Application name: <cluster-name>-backstage
+      name: {{ `"{{name}}-backstage"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: backstage
+        app.kubernetes.io/component: developer-portal
+        cluster: {{ `"{{name}}"` }}
+      annotations:
+        argocd.argoproj.io/sync-wave: "3"
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: argocd-notifications
+
+    spec:
+      # Project
+      project: default
+
+      # Source repository configuration
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/backstage
+        helm:
+          # Use the default values.yaml from the helm chart
+          valueFiles:
+            - values.yaml
+          # Optional: Add cluster-specific values files
+          # Create these files in helmcharts/backstage/values/<cluster-name>/values.yaml
+          # - {{ `"values/{{name}}/values.yaml"` }}
+
+          # Minimal parameter overrides (optional)
+          # Use this only for cluster-specific simple overrides
+          # For complex configs, use separate value files above
+          parameters: []
+            # - name: "backstage.backstage.replicas"
+            #   value: {{ `"{{values.replicaCount}}"` }}
+            # - name: "backstage.ingress.host"
+            #   value: {{ `"backstage-{{name}}.example.com"` }}
+
+      # Destination cluster and namespace
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: backstage
+
+      # Sync policy
+      syncPolicy:
+        # Automated sync
+        automated:
+          # Automatically sync when changes are detected
+          prune: true
+          # Automatically sync when the Application is out of sync
+          selfHeal: true
+          # Allow empty resources (useful for CRDs)
+          allowEmpty: false
+
+        # Sync options
+        syncOptions:
+          # Create namespace if it doesn't exist
+          - CreateNamespace=true
+          # Validate resources before applying
+          - Validate=true
+          # Use server-side apply
+          - ServerSideApply=false
+          # Respect ignore differences
+          - RespectIgnoreDifferences=true
+          # Apply out of sync only
+          - ApplyOutOfSyncOnly=false
+          # Prune last
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+
+        # Retry policy
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      # Ignore differences in certain fields
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
+        - group: ""
+          kind: Secret
+          jsonPointers:
+            - /data
+
+      # Health assessment
+      # Backstage is healthy when the deployment is ready
+      # No custom health checks needed - uses default Kubernetes health

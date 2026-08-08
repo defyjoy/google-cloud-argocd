@@ -1,0 +1,7 @@
+environment: dev
+
+externalSecrets:
+  dbHostOverride: postgresql-cluster-rw.cloudnative-pg-system.svc.cluster.local
+
+httproute:
+  hostname: identity.dev.home.arpa

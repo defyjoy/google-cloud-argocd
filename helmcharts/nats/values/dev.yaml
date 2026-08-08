@@ -1,0 +1,16 @@
+nats:
+  jetstreamBootstrap:
+    enabled: true
+    streams:
+      - name: ALARMIFY_EVENTS_RAW
+        subjects: "alarmify.events.raw.*"
+        storage: file
+        retention: limits
+        maxAge: 24h
+        dupeWindow: 2m
+        consumers:
+          - name: alarmify-event-processor
+            filterSubject: "alarmify.events.raw.*"
+            ackPolicy: explicit
+            deliverPolicy: all
+            pull: true

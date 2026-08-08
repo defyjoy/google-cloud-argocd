@@ -1,0 +1,16 @@
+vmcluster:
+  enabled: false
+
+vmalert:
+  enabled: false
+
+remoteWriteToken:
+  enabled: true
+
+vmagent:
+  externalLabels:
+    cluster: dev
+  remoteWrite:
+    url: "http://192.168.3.10:8480/insert/0/prometheus/api/v1/write"
+    auth:
+      enabled: true

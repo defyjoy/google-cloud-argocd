@@ -1,0 +1,58 @@
+enabled: true
+
+cilium:
+  kubeProxyReplacement: true
+  k8sServiceHost: localhost
+  k8sServicePort: 7445
+
+  ipam:
+    mode: kubernetes
+
+  cgroup:
+    autoMount:
+      enabled: false
+    hostRoot: /sys/fs/cgroup
+  securityContext:
+    capabilities:
+      ciliumAgent:
+        - CHOWN
+        - KILL
+        - NET_ADMIN
+        - NET_RAW
+        - IPC_LOCK
+        - SYS_ADMIN
+        - SYS_RESOURCE
+        - DAC_OVERRIDE
+        - FOWNER
+        - SETGID
+        - SETUID
+      cleanCiliumState:
+        - NET_ADMIN
+        - SYS_ADMIN
+        - SYS_RESOURCE
+
+  cni:
+    exclusive: false
+  socketLB:
+    hostNamespaceOnly: true
+
+  l2announcements:
+    enabled: true
+  externalIPs:
+    enabled: true
+  k8sClientRateLimit:
+    qps: 50
+    burst: 100
+
+  operator:
+    replicas: 1
+    rollOutPods: true
+    skipCRDCreation: true
+  hubble:
+    enabled: false
+
+loadBalancer:
+  enabled: true
+  poolName: default-pool
+  interface: "ens18"
+  addresses: []

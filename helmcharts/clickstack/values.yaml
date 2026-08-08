@@ -1,0 +1,162 @@
+clickhouse:
+  enabled: true
+
+httproute:
+  enabled: true
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: https
+  hostnames:
+    - clickhouse.home.arpa
+  path: /
+  pathType: PathPrefix
+  annotations: {}
+  backendServiceName: clickstack
+  backendPort: 3000
+
+clickstack:
+  fullnameOverride: clickstack
+
+  global:
+    imagePullSecrets: []
+
+  hyperdx:
+    config:
+      USAGE_STATS_ENABLED: "false"
+      FRONTEND_URL: "http://clickhouse.home.arpa"
+
+    deployment:
+      env:
+        - name: FRONTEND_URL
+          value: "http://clickhouse.home.arpa"
+      replicas: 1
+      resources:
+        limits:
+          cpu: 250m
+          memory: 1Gi
+        requests:
+          cpu: 125m
+          memory: 512Mi
+
+    ingress:
+      enabled: false
+
+    tasks:
+      enabled: false
+
+  mongodb:
+    enabled: true
+    spec:
+      statefulSet:
+        spec:
+          volumeClaimTemplates:
+            - metadata:
+                name: data-volume
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                storageClassName: standard-rwo
+                resources:
+                  requests:
+                    storage: 5Gi
+          template:
+            spec:
+              containers:
+                - name: mongod
+                  resources:
+                    requests:
+                      cpu: 100m
+                    limits:
+                      cpu: 200m
+                  resizePolicy:
+                    - resourceName: cpu
+                      restartPolicy: NotRequired
+                    - resourceName: memory
+                      restartPolicy: NotRequired
+                - name: mongodb-agent
+                  resources:
+                    requests:
+                      cpu: 100m
+                    limits:
+                      cpu: 200m
+                  resizePolicy:
+                    - resourceName: cpu
+                      restartPolicy: NotRequired
+                    - resourceName: memory
+                      restartPolicy: NotRequired
+
+  clickhouse:
+    enabled: true
+    keeper:
+      spec:
+        containerTemplate:
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        dataVolumeClaimSpec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: standard-rwo
+          resources:
+            requests:
+              storage: 10Gi
+    cluster:
+      spec:
+        containerTemplate:
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        dataVolumeClaimSpec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: standard-rwo
+          resources:
+            requests:
+              storage: 10Gi
+
+  otel-collector:
+    enabled: false
+
+clickstack-operators:
+  mongodb-operator:
+    operator:
+      watchedResources:
+        - mongodbcommunity
+      watchNamespace: clickhouse
+      resources:
+        requests:
+          cpu: 13m
+          memory: 50Mi
+        limits:
+          cpu: 26m
+          memory: 100Mi
+
+  clickhouse-operator:
+    webhook:
+      enable: false
+    certManager:
+      enable: false
+      install: false
+    crd:
+      enable: true
+    watchNamespaces:
+      - clickhouse
+    manager:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 20m
+          memory: 128Mi

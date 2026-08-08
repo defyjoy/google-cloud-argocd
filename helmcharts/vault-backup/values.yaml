@@ -1,0 +1,73 @@
+enabled: true
+
+schedule: "0 2 * * *"
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 2
+failedJobsHistoryLimit: 3
+startingDeadlineSeconds: 3600
+activeDeadlineSeconds: 7200
+backoffLimit: 1
+
+vault:
+  addr: "http://local-vault-active.vault.svc:8200"
+  skipVerify: true
+
+s3:
+  bucket: ""
+  region: "us-east-1"
+  prefix: "vault-backups/management"
+  endpoint: ""
+  forcePathStyle: false
+
+externalSecrets:
+  enabled: true
+  secretStore: vault-secretstore
+  vaultPath: infra/vault-backup/s3
+  refreshInterval: 1h
+  targetSecretName: vault-backup-creds
+  properties:
+    accessKeyId: VAULT_ACCESS_KEY_ID
+    secretAccessKey: VAULT_SECRET_ACCESS_KEY
+    vaultToken: VAULT_TOKEN
+
+serviceAccount:
+  create: true
+  name: vault-backup
+  annotations: {}
+
+image:
+  repository: hashicorp/vault
+  tag: "1.20.4"
+  pullPolicy: IfNotPresent
+
+arch: amd64
+
+rclone:
+  version: "v1.69.1"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "200m"
+    memory: 512Mi
+
+securityContext:
+  pod:
+    runAsNonRoot: false
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  container:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: false
+    runAsUser: 0
+    seccompProfile:
+      type: RuntimeDefault

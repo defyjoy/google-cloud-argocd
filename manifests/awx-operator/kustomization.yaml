@@ -1,0 +1,90 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: awx-operator
+
+# Use the official AWX Operator from GitHub
+resources:
+  - github.com/ansible/awx-operator/config/default?ref=2.19.0
+
+# Add labels (replaces deprecated commonLabels)
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: awx-operator
+      app.kubernetes.io/instance: awx-operator
+      app.kubernetes.io/version: "2.19.0"
+      app.kubernetes.io/managed-by: argocd
+
+# Namespace configuration
+patches:
+  # Set namespace pod security to privileged
+  - target:
+      kind: Namespace
+      name: awx-operator
+    patch: |-
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce
+        value: privileged
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1audit
+        value: privileged
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1warn
+        value: privileged
+  # Ensure all required security context fields are set on the Deployment
+  # This ensures compliance with PodSecurity standards
+  - target:
+      kind: Deployment
+      name: awx-operator-controller-manager
+    patch: |-
+      # Pod-level security context
+      - op: add
+        path: /spec/template/spec/securityContext
+        value: {}
+      - op: add
+        path: /spec/template/spec/securityContext/runAsNonRoot
+        value: true
+      - op: add
+        path: /spec/template/spec/securityContext/seccompProfile
+        value:
+          type: RuntimeDefault
+      # Container 0 (awx-manager) security context
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext
+        value: {}
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/runAsNonRoot
+        value: true
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/allowPrivilegeEscalation
+        value: false
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/capabilities
+        value:
+          drop:
+            - ALL
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/seccompProfile
+        value:
+          type: RuntimeDefault
+      # Container 1 (kube-rbac-proxy) security context
+      - op: add
+        path: /spec/template/spec/containers/1/securityContext
+        value: {}
+      - op: add
+        path: /spec/template/spec/containers/1/securityContext/runAsNonRoot
+        value: true
+      - op: add
+        path: /spec/template/spec/containers/1/securityContext/allowPrivilegeEscalation
+        value: false
+      - op: add
+        path: /spec/template/spec/containers/1/securityContext/capabilities
+        value:
+          drop:
+            - ALL
+      - op: add
+        path: /spec/template/spec/containers/1/securityContext/seccompProfile
+        value:
+          type: RuntimeDefault
+

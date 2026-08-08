@@ -1,0 +1,21 @@
+{{- if and .Values.nats (default true .Values.nats.enabled) .Values.nats.natsBox.homePvc.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "wrapper.nats.fullname" . }}-natsbox-home
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/component: nats-box-home
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.nats.natsBox.homePvc.size | default "1Gi" | quote }}
+  {{- $sc := .Values.nats.natsBox.homePvc.storageClassName | default "" }}
+  {{- if and $sc (ne $sc "") }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+{{- end }}

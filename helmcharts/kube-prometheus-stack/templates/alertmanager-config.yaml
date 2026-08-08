@@ -1,0 +1,137 @@
+{{- /*
+Base Alertmanager configuration, as a global AlertmanagerConfig object
+(monitoring.coreos.com/v1alpha1 — v1alpha1 is the only served version in the
+operator bundled with this chart) referenced by
+alertmanager.alertmanagerSpec.alertmanagerConfiguration.name. This takes
+precedence over configSecret, so no Secret is rendered here — useExistingSecret:
+true still stops the upstream chart's own secret.yaml from rendering its
+default (now-unused) one. Design rationale, why this isn't the
+alertmanagerConfigSelector merge mechanism, and config reference: OIDC.md /
+PAGERDUTY.md.
+*/ -}}
+{{- $kps := index .Values "kube-prometheus-stack" }}
+{{- $am := $kps.alertmanager }}
+{{- $hooks := default (list) $am.customWebhookEndpoints }}
+{{- $oauth := default (dict) $am.alarmifyOauth }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alarmify-oauth-client-id
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: alertmanager
+    app.kubernetes.io/instance: alertmanager
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/part-of: kube-prometheus-stack
+data:
+  # Not a secret — AlertmanagerConfig's oauth2.clientId only accepts a
+  # Secret/ConfigMap key reference, not a literal string. See OIDC.md.
+  client-id: {{ $oauth.clientId | quote }}
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: alarmify-alertmanager-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: alertmanager
+    app.kubernetes.io/instance: alertmanager
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: alertmanager
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  route:
+    {{- if gt (len $hooks) 0 }}
+    receiver: custom-webhooks
+    {{- else }}
+    receiver: "alarmify"
+    {{- end }}
+    groupBy: ['alertname', 'cluster', 'service', 'namespace']
+    groupWait: 10s
+    groupInterval: 10s
+    repeatInterval: 1h
+    routes:
+      - matchers:
+          - name: alertname
+            value: Watchdog
+            matchType: "="
+        receiver: "null"
+        continue: false
+      - matchers:
+          - name: alertname
+            value: InfoInhibitor
+            matchType: "="
+        receiver: "null"
+        continue: false
+  inhibitRules:
+    - sourceMatch:
+        - name: severity
+          value: critical
+          matchType: "="
+      targetMatch:
+        - name: severity
+          value: warning
+          matchType: "="
+      equal: ['alertname', 'cluster', 'service', 'namespace']
+    - sourceMatch:
+        - name: severity
+          value: warning
+          matchType: "="
+      targetMatch:
+        - name: severity
+          value: info
+          matchType: "="
+      equal: ['alertname', 'cluster', 'service', 'namespace']
+    - sourceMatch:
+        - name: alertname
+          value: InfoInhibitor
+          matchType: "="
+      targetMatch:
+        - name: severity
+          value: info
+          matchType: "="
+      equal: ['namespace']
+  receivers:
+    - name: "null"
+    - name: "alarmify"
+      webhookConfigs:
+        # ⚠️ UNRESOLVED cross-cluster dependency. Alertmanager runs on management;
+        # alarmify-ingest-api runs on dev. The Proxmox repo carried this over an Istio ambient
+        # multicluster mesh (istio.io/global Services merged by istiod), which this repo does not
+        # have. Until a cross-cluster transport exists, this webhook resolves to nothing and
+        # alarmify receives no alerts. See README "Known gaps".
+        - url: "http://dev-alarmify-ingest-api.alarmify-ingest-api.svc/api/v1/alerts/prometheus"
+          sendResolved: true
+          # OAuth2 client credentials — flow and config reference: OIDC.md.
+          # Gated on alarmifyOauth.enabled: prometheus-operator refuses to build the
+          # Alertmanager StatefulSet at all when clientSecret names a Secret that does
+          # not exist, so a missing Vault object takes down alerting entirely rather
+          # than just breaking delivery. See README "Alarmify OAuth2 receiver".
+          {{- if $oauth.enabled }}
+          httpConfig:
+            oauth2:
+              clientId:
+                configMap:
+                  name: alarmify-oauth-client-id
+                  key: client-id
+              clientSecret:
+                name: alarmify-oauth
+                key: client-secret
+              tokenUrl: {{ $oauth.tokenUrl | quote }}
+              scopes:
+                - openid
+                - "urn:zitadel:iam:org:project:id:{{ $oauth.projectId }}:aud"
+          {{- end }}
+    {{- if gt (len $hooks) 0 }}
+    - name: custom-webhooks
+      webhookConfigs:
+      {{- range $hooks }}
+        - url: {{ .url | quote }}
+          sendResolved: {{ default true .send_resolved }}
+        {{- with .httpConfig }}
+          httpConfig:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}

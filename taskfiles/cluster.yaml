@@ -1,0 +1,33 @@
+version: '3'
+
+# Cluster / kubectl sanity checks (shared prerequisites for bootstrap and Vault).
+
+tasks:
+  check-prerequisites:
+    desc: "Check if all prerequisites are installed"
+    summary: |
+      Verifies that required tools are installed:
+      - kubectl (Kubernetes CLI)
+      - helm (Helm package manager)
+      - Cluster connectivity
+    silent: true
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/check-prerequisites.sh"
+
+  cluster-connectivity:
+    desc: "Check cluster connectivity and kubectl access"
+    summary: |
+      Verifies cluster connectivity and kubectl access.
+
+      This is a standalone task that can be run independently to test:
+      - kubectl command availability
+      - Cluster API server connectivity
+      - Current context validation
+      - Basic cluster resource access
+
+      Useful for troubleshooting cluster access issues.
+
+      Runs the shared cluster connectivity script (same checks as Vault preflight;
+      not Vault-specific).
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-connectivity.sh"

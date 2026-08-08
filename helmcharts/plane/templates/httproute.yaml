@@ -1,0 +1,88 @@
+# Gateway API HTTPRoute for Plane — mirrors the path map the plane-ce chart's own Ingress
+# would produce (templates/ingress.yaml), re-expressed as a single HTTPRoute attached to the
+# shared north-south Gateway. Service names are {{ .Release.Name }}-<tier>, matching the
+# subchart (same Helm release name), so this resolves whatever the ArgoCD Application is named.
+#
+# Gateway API selects the most specific PathPrefix per request regardless of rule order, so
+# `/` safely coexists with the more specific `/api`, `/spaces`, etc. below.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/component: httproute
+    app.kubernetes.io/part-of: plane
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    # Creates plane.workquark.org in the cloudflare zone; the tunnel target is read off the
+    # Gateway, not here.
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.httproute.externalDns.hostname | quote }}
+    external-dns.alpha.kubernetes.io/class: {{ .Values.httproute.externalDns.class | quote }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httproute.parentRef.name }}
+      namespace: {{ .Values.httproute.parentRef.namespace }}
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      # Attach to the plaintext listener only — edge TLS is at Cloudflare.
+      sectionName: http
+  hostnames:
+    {{- range .Values.httproute.hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    # Backend API (REST + auth endpoints).
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+        - path:
+            type: PathPrefix
+            value: /auth
+      backendRefs:
+        - name: {{ .Release.Name }}-api
+          port: 8000
+    # Realtime collaboration (Hocuspocus) server.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /live
+      backendRefs:
+        - name: {{ .Release.Name }}-live
+          port: 3000
+    # Public "Plane Spaces" frontend.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /spaces
+      backendRefs:
+        - name: {{ .Release.Name }}-space
+          port: 3000
+    # Admin ("god-mode") panel.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /god-mode
+      backendRefs:
+        - name: {{ .Release.Name }}-admin
+          port: 3000
+    {{- if .Values.docstoreBucket }}
+    # Uploaded documents served straight from the in-cluster MinIO bucket.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /{{ .Values.docstoreBucket }}
+      backendRefs:
+        - name: {{ .Release.Name }}-minio
+          port: 9000
+    {{- end }}
+    # Main web app — catch-all, least specific.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-web
+          port: 3000

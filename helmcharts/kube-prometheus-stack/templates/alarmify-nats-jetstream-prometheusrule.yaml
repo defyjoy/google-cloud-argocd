@@ -1,0 +1,79 @@
+# Alerts for the ADR-001 tenant-scoped subject hierarchy migration
+# (alarmify-docs/docs/ingestion/adr-001-implementation-plan.md, Phase 5).
+# Nothing scraped NATS/JetStream before this migration; metric names below are verified
+# against natsio/prometheus-nats-exporter's jsz collector (v0.18.0, the version pinned by
+# helmcharts/nats's promExporter.image.tag) — not guessed. Labels are per stream_name /
+# consumer_name only, deliberately not per-tenant (ADR-001's whole point was avoiding
+# per-tenant broker objects; do not add a tenant_id label here by parsing subjects).
+{{- $kps := index .Values "kube-prometheus-stack" }}
+{{- if $kps.alertmanager.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: alarmify-nats-jetstream
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    release: kube-prometheus-stack
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: alarmify.nats.jetstream
+      rules:
+        - alert: AlarmifyJetStreamConsumerBacklogHigh
+          # jetstream_consumer_num_pending: messages matching the consumer's FilterSubject
+          # not yet delivered. Sustained high value = worker isn't draining the raw-event stream.
+          expr: |
+            jetstream_consumer_num_pending{stream_name="ALARMIFY_EVENTS_RAW", consumer_name="alarmify-event-processor"} > 1000
+          for: 15m
+          labels:
+            severity: warning
+            service: alarmify-event-worker
+          annotations:
+            summary: "alarmify-event-processor backlog is high"
+            description: >-
+              jetstream_consumer_num_pending for ALARMIFY_EVENTS_RAW/alarmify-event-processor
+              has been over 1000 for 15m. Check alarmify-event-worker health and lag, and
+              confirm its FilterSubject still matches what alarmify-ingest-api is publishing
+              (see docs/ingestion/adr-001-implementation-plan.md).
+        - alert: AlarmifyJetStreamConsumerRedeliveryHigh
+          # jetstream_consumer_num_redelivered is a point-in-time gauge (current outstanding
+          # redeliveries), not a cumulative counter — alert on absolute value, not rate()/increase().
+          expr: |
+            jetstream_consumer_num_redelivered{stream_name="ALARMIFY_EVENTS_RAW", consumer_name="alarmify-event-processor"} > 20
+          for: 10m
+          labels:
+            severity: warning
+            service: alarmify-event-worker
+          annotations:
+            summary: "alarmify-event-processor redelivering messages"
+            description: >-
+              jetstream_consumer_num_redelivered for ALARMIFY_EVENTS_RAW/alarmify-event-processor
+              has been over 20 for 10m — the worker is failing to ack messages (crash loop,
+              DB errors, or Nak from handleMessage). Check alarmify-event-worker logs.
+        - alert: AlarmifyJetStreamConsumerStalled
+          # Consumer has a backlog (num_pending > 0) but hasn't delivered anything recently —
+          # the classic symptom of a FilterSubject that no longer matches what's being published
+          # (e.g. ADR-001 cutover order mistake: stream/publisher moved to the wildcard subject
+          # before the durable's FilterSubject was updated per the migration runbook).
+          expr: |
+            jetstream_consumer_last_delivery_seconds{stream_name="ALARMIFY_EVENTS_RAW", consumer_name="alarmify-event-processor"} > 900
+            and
+            jetstream_consumer_num_pending{stream_name="ALARMIFY_EVENTS_RAW", consumer_name="alarmify-event-processor"} > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: alarmify-event-worker
+          annotations:
+            summary: "alarmify-event-processor stalled with a non-empty backlog"
+            description: >-
+              No message delivered to alarmify-event-processor in over 15 minutes despite a
+              non-empty backlog. Likely a FilterSubject/publish-subject mismatch — verify with
+              `nats consumer info ALARMIFY_EVENTS_RAW alarmify-event-processor` and the
+              subject-hierarchy-migration-runbook.md §3 rollback steps.
+{{- end }}

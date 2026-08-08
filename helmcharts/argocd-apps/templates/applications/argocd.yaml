@@ -1,0 +1,145 @@
+---
+# ArgoCD Self-Management Application
+# This Application configures ArgoCD to manage itself from Git
+#
+# Apply this after initial bootstrap:
+#   kubectl apply -f argocd-self-managed.yaml
+#
+# After this, all ArgoCD configuration changes should be made via Git commits
+# ArgoCD will automatically sync changes from the repository
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  # Finalizer ensures proper cleanup
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: bootstrap
+  annotations:
+    # First of everything: the GitOps control plane itself. Must be Synced before any
+    # ApplicationSet is created, so the repo server is already scaled up and healthy by
+    # the time the rest of the tree starts requesting manifests. Below cilium (-20).
+    argocd.argoproj.io/sync-wave: "-30"
+spec:
+  # Project to which this application belongs
+  project: default
+  
+  # Source repository configuration
+  source:
+    # Git repository URL (update this to your fork/repo)
+    repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+    
+    # Branch/tag/commit to sync
+    targetRevision: HEAD
+    
+    # Path to ArgoCD helm chart
+    path: helmcharts/argocd
+    
+    # Helm configuration
+    helm:
+      # Use the values.yaml from the chart
+      valueFiles:
+        - values.yaml
+      
+      # Optional: Override specific values
+      # values: |
+      #   argo-cd:
+      #     global:
+      #       domain: argocd.example.com
+  
+  # Destination cluster and namespace
+  destination:
+    # Local cluster (self)
+    server: https://kubernetes.default.svc
+    
+    # Target namespace
+    namespace: argocd
+  
+  # Sync policy configuration
+  syncPolicy:
+    # Automated sync configuration
+    automated:
+      # Prune resources that are no longer in Git
+      prune: true
+      
+      # Self-heal: sync when cluster state deviates from Git
+      selfHeal: true
+      
+      # Don't allow empty commits to delete everything
+      allowEmpty: false
+    
+    # Sync options
+    syncOptions:
+      # Create namespace if it doesn't exist
+      - CreateNamespace=true
+      
+      # Use server-side apply
+      - ServerSideApply=true
+      
+      # Respect ignore differences
+      - RespectIgnoreDifferences=true
+    
+    # Retry configuration for failed syncs
+    retry:
+      # Number of retry attempts
+      limit: 5
+      
+      # Backoff strategy
+      backoff:
+        # Initial retry delay
+        duration: 5s
+        
+        # Backoff factor
+        factor: 2
+        
+        # Maximum retry delay
+        maxDuration: 3m
+  
+  # Revision history limit
+  revisionHistoryLimit: 10
+  
+  # Ignore differences for specific resources
+  ignoreDifferences:
+    # Ignore webhook CA bundles (auto-generated)
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    
+    # Ignore runtime changes to secrets
+    - group: ""
+      kind: Secret
+      name: argocd-secret
+      jqPathExpressions:
+        - .data
+
+    # Gateway API: controller-managed status (and optional managedFields noise) on the chart HTTPRoute
+    # - group: gateway.networking.k8s.io
+    #   kind: HTTPRoute
+    #   name: argocd-server
+    #   jqPathExpressions:
+    #     - .status
+    #     - .metadata.managedFields
+
+    # argo-cd chart: StatefulSet volumeClaimTemplates drift (api defaults, volumeMode, etc.) vs live PVCs
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates
+
+    # PVCs created from those templates: controller and status fields differ from desired manifest
+    - group: ""
+      kind: PersistentVolumeClaim
+      jqPathExpressions:
+        - .status
+        - .metadata.annotations
+

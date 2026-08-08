@@ -1,0 +1,105 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+spec:
+  generators:
+    # Cluster generator - automatically discovers clusters registered in ArgoCD
+    - clusters:
+        selector:
+          matchLabels:
+            # Deploy to clusters with this label
+            ingress-nginx: "true"
+        values:
+          # Default values for all clusters
+          environment: "production"
+    
+    # Alternative: List generator for explicit cluster definitions
+    # Uncomment this and comment out the clusters generator above if you prefer explicit cluster list
+    # - list:
+    #     elements:
+    #       - cluster: production
+    #         url: https://kubernetes.default.svc
+    #         environment: production
+    #       - cluster: staging
+    #         url: https://staging-cluster.example.com
+    #         environment: staging
+    #       - cluster: development
+    #         url: https://dev-cluster.example.com
+    #         environment: development
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-ingress-nginx"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "1"  # Deploy early as core networking infrastructure
+    spec:
+      project: default
+      
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/ingress-nginx
+        helm:
+          # Use the default values.yaml from the helm chart
+          valueFiles:
+            - values.yaml
+            # Optional: Add cluster-specific values files
+            # Create these files in helmcharts/ingress-nginx/values/<cluster-name>/values.yaml
+            # - {{ `"values/{{name}}/values.yaml"` }}
+          
+          # Minimal parameter overrides (optional)
+          # Use this only for cluster-specific simple overrides
+          # For complex configs, use separate value files above
+          parameters: []
+            # - name: "ingress-nginx.controller.replicaCount"
+            #   value: {{ `"{{values.replicaCount}}"` }}
+            # - name: "ingress-nginx.controller.service.type"
+            #   value: {{ `"{{values.serviceType}}"` }}
+      
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: ingress-nginx
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      
+      # Ignore differences for webhook configurations
+      ignoreDifferences:
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+            - .webhooks[]?.failurePolicy
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+      
+      # Health assessment
+      revisionHistoryLimit: 3

@@ -1,0 +1,54 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-alerts-infra
+  namespace: kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    release: kube-prometheus-stack
+    prometheus: kube-prometheus
+    role: alert-rules
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  groups:
+    - name: kubernetes.storage.health
+      rules:
+        - alert: KubePersistentVolumeFullInFourDays
+          expr: predict_linear(kubelet_volume_stats_available_bytes[6h], 4 * 24 * 3600) < 0
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "PersistentVolume {{ `{{ $labels.persistentvolumeclaim }}` }} is predicted to be full in 4 days"
+            description: "PersistentVolume {{ `{{ $labels.persistentvolumeclaim }}` }} is predicted to be full in 4 days based on current usage."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubePersistentVolumeFullInFourDays.md"
+
+        - alert: KubePersistentVolumeFullInOneDay
+          expr: predict_linear(kubelet_volume_stats_available_bytes[6h], 24 * 3600) < 0
+          for: 5m
+          labels:
+            severity: critical
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "PersistentVolume {{ `{{ $labels.persistentvolumeclaim }}` }} is predicted to be full in 1 day"
+            description: "PersistentVolume {{ `{{ $labels.persistentvolumeclaim }}` }} is predicted to be full in 1 day based on current usage."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubePersistentVolumeFullInOneDay.md"
+
+    - name: kubernetes.network.health
+      rules:
+        - alert: KubeNetworkUnavailable
+          expr: kube_node_status_condition{condition="NetworkUnavailable",status="true"} == 1
+          for: 2m
+          labels:
+            severity: critical
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Kubernetes node {{ `{{ $labels.node }}` }} network is unavailable"
+            description: "Node {{ `{{ $labels.node }}` }} network is unavailable and pods may not be able to communicate."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeNetworkUnavailable.md"

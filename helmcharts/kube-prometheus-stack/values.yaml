@@ -1,0 +1,266 @@
+argocdDashboards:
+  enabled: true
+  annotations:
+    grafana_folder: "ArgoCD"
+
+kube-prometheus-stack:
+  enabled: true
+
+  defaultRules:
+    disabled:
+      InfoInhibitor: true
+      KubePodNotReady: true
+      KubePodCrashLooping: true
+      KubeContainerWaiting: true
+      KubeDeploymentReplicasMismatch: true
+      KubeDeploymentRolloutStuck: true
+      KubeStatefulSetReplicasMismatch: true
+
+  kubernetesServiceMonitors:
+    enabled: true
+
+  prometheus-node-exporter:
+    prometheus:
+      monitor:
+        enabled: true
+
+  prometheus:
+    enabled: false
+
+    serviceMonitor:
+      selfMonitor: true
+
+    prometheusSpec:
+      serviceMonitorSelector: {}
+      serviceMonitorSelectorNilUsesHelmValues: true
+      serviceMonitorNamespaceSelector: {}
+
+  grafana:
+    enabled: true
+
+    serviceMonitor:
+      enabled: true
+      labels:
+        prometheus-scrape: "enabled"
+
+    sidecar:
+      datasources:
+        url: "http://vmselect-local-victoria-metrics.victoria-metrics.svc:8481/select/0/prometheus"
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        searchNamespace: ALL
+        folderAnnotation: grafana_folder
+        folder: /tmp/dashboards
+        defaultFolderName: "kube-prometheus-stack"
+        annotations:
+          grafana_folder: "kube-prometheus-stack"
+        provider:
+          foldersFromFilesStructure: true
+          path: /tmp/dashboards
+
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: "grafana-dashboards-kubernetes"
+            orgId: 1
+            folder: "grafana-dashboards-kubernetes"
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/grafana-dashboards-kubernetes
+          - name: "vault-monitoring"
+            orgId: 1
+            folder: "Vault"
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/vault-monitoring
+          - name: "cloudnativepg-monitoring"
+            orgId: 1
+            folder: "CloudNativePG"
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/cloudnativepg-monitoring
+
+    dashboards:
+      grafana-dashboards-kubernetes:
+        k8s-addons-prometheus:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-addons-prometheus.json
+          token: ""
+        k8s-addons-trivy-operator:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-addons-trivy-operator.json
+          token: ""
+        k8s-system-api-server:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-api-server.json
+          token: ""
+        k8s-system-coredns:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-system-coredns.json
+          token: ""
+        k8s-views-global:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
+          token: ""
+        k8s-views-namespaces:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-namespaces.json
+          token: ""
+        k8s-views-nodes:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-nodes.json
+          token: ""
+        k8s-views-pods:
+          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-pods.json
+          token: ""
+      vault-monitoring:
+        hashicorp-vault:
+          gnetId: 12904
+          revision: 2
+          datasource: Prometheus
+
+      cloudnativepg-monitoring:
+        cloudnativepg-cluster:
+          gnetId: 20417
+          revision: 4
+          datasource: Prometheus
+
+    alarmifyOidc:
+      enabled: false
+      externalSecret:
+        secretStore: vault-secretstore
+        refreshInterval: 1h
+        vaultPath: alarmify/management/zitadel
+        secretName: grafana-oidc
+        clientIdProperty: ZITADEL_GRAFANA_CLIENT_ID
+        clientSecretProperty: ZITADEL_GRAFANA_CLIENT_SECRET
+
+    grafana.ini:
+      server:
+        root_url: https://grafana.home.arpa
+      auth.generic_oauth:
+        enabled: false
+        name: Zitadel
+        icon: signin
+        allow_sign_up: true
+        auto_login: false
+        use_pkce: true
+        use_refresh_token: true
+        scopes: openid profile email offline_access
+        auth_url: https://zitadel.workquark.org/oauth/v2/authorize
+        token_url: https://zitadel.workquark.org/oauth/v2/token
+        api_url: https://zitadel.workquark.org/oidc/v1/userinfo
+        login_attribute_path: preferred_username
+        name_attribute_path: name
+        email_attribute_path: email
+        role_attribute_path: "'Viewer'"
+        role_attribute_strict: true
+        allow_assign_grafana_admin: false
+
+    ingress:
+      enabled: false
+
+    route:
+      main:
+        enabled: true
+        hostnames:
+          - grafana.home.arpa
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: gateway
+            namespace: gateway-system
+            sectionName: http
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: gateway
+            namespace: gateway-system
+            sectionName: https
+
+  alertmanager:
+    enabled: true
+    serviceMonitor:
+      selfMonitor: true
+    alertmanagerSpec:
+      logLevel: info
+
+      alertmanagerConfigSelector: {}
+      alertmanagerConfigNamespaceSelector: {}
+      useExistingSecret: true
+      alertmanagerConfiguration:
+        name: alarmify-alertmanager-config
+        global:
+          resolveTimeout: 5m
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: alertmanager
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+
+    alarmifyOauth:
+      enabled: false
+      clientId: "workquark-alertmanager"
+      projectId: "383904466425938149"
+      tokenUrl: "https://zitadel.workquark.org/oauth/v2/token"
+      externalSecret:
+        secretStore: vault-secretstore
+        vaultPath: alarmify/management/alertmanager-oauth
+
+    customWebhookEndpoints: []
+
+    pagerduty:
+      enabled: false
+      integrationKey: ""
+      vaultPath: "pagerduty/integration-key"
+      vaultProperty: "key"
+      serviceKey: ""
+      severity:
+        critical: "critical"
+        warning: "warning"
+        info: "info"
+
+    service:
+      type: ClusterIP
+      port: 9093
+      targetPort: 9093
+
+    ingress:
+      enabled: false
+      ingressClassName: "nginx"
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - alertmanager.workquark.org
+      paths:
+        - /
+      pathType: Prefix
+
+  kube-state-metrics:
+    prometheus:
+      monitor:
+        enabled: true
+        additionalLabels:
+          prometheus-scrape: "enabled"
+
+  prometheusOperator:
+    enabled: true
+    serviceMonitor:
+      selfMonitor: true
+
+  kubelet:
+    enabled: true

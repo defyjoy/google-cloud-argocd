@@ -1,0 +1,501 @@
+version: '3'
+
+# Argo CD / Cilium CNI install and operations (paths via {{.REPO_ROOT}} from root Taskfile).
+# Cilium chart dir is also derived from {{.TASKFILE_DIR}}/.. so `task -t taskfiles/argocd.yaml` works.
+
+vars:
+  ARGOCD_APPS_PATH: helmcharts/argocd-apps
+  ARGOCD_CHART_PATH: helmcharts/argocd
+  ARGOCD_NAMESPACE: argocd
+  # Cilium is the cluster CNI + kube-proxy replacement + LoadBalancer. On a fresh Talos cluster
+  # (cni:none/proxy.disabled) it must be Helm-installed before ArgoCD — no CNI, nothing schedules.
+  CILIUM_CHART_PATH: helmcharts/cilium
+  CILIUM_NAMESPACE: kube-system
+  CILIUM_RELEASE_NAME: cilium
+  # Bootstrap targets the management cluster only (values/local.yaml). The dev cluster is NOT
+  # bootstrapped here — it is registered as a remote Argo CD target: see
+  # docs/runbooks/register-dev-cluster.md.
+  CILIUM_VALUES: values/local.yaml
+  # Gateway API CRDs are installed imperatively at bootstrap, before Argo CD can sync anything
+  # that templates a route. EXPERIMENTAL channel is required, not optional:
+  # standard omits TCPRoute, which cloudnative-pg, victoria-metrics, nats and tempo all template.
+  GATEWAY_API_VERSION: v1.5.1
+  GATEWAY_API_CHANNEL: experimental
+
+tasks:
+  bootstrap:
+    desc: "Complete ArgoCD bootstrap (management cluster): install + self-management + app-of-apps"
+    summary: |
+      Bootstraps the MANAGEMENT cluster only. The dev cluster is not bootstrapped this way —
+      it is registered as a remote Argo CD target: see docs/runbooks/register-dev-cluster.md.
+
+      Performs a complete ArgoCD bootstrap including:
+      1. Prerequisites check
+      2. Cilium CNI Helm install + wait
+      3. Gateway API CRDs (experimental channel) — no chart ships these, and every
+         HTTPRoute/TCPRoute chart fails to sync without them.
+      4. ArgoCD MINIMAL install via Helm (Git SSH repo wired from Taskfile vars). Uses
+         values-bootstrap.yaml to skip resources not installable by plain Helm on a fresh
+         cluster: dev-cluster ExternalSecret (External Secrets CRDs absent) and the
+         kube-system/coredns ConfigMap (already exists, Talos-created — Helm won't adopt it).
+         It also disables the argocd-server HTTPRoute; since step 3 now installs the Gateway API
+         CRDs first that is redundant, but harmless — Argo CD renders it from git at step 7.
+      5. Wait for ArgoCD to be ready
+      6. Display admin credentials
+      7. Configure self-management  → Argo CD now reconciles the FULL values.yaml from git
+      8. Configure app-of-apps pattern → installs external-secrets-operator, after which Argo CD
+         self-heals the ExternalSecret and adopts the existing coredns ConfigMap automatically.
+
+      This is the recommended way to set up ArgoCD.
+    cmds:
+      - task: check-prerequisites
+      - task: install
+      - task: wait-ready
+      - task: get-initial-admin-password
+      - task: self-manage
+      - task: app-of-apps
+      - task: success-message
+
+  update-deps:
+    desc: "Update Helm chart dependencies"
+    summary: |
+      Updates the ArgoCD Helm chart dependencies.
+      Downloads the argo-cd chart from the official repository.
+    vars:
+      ARGOCD_CHART_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/{{.ARGOCD_CHART_PATH | default "helmcharts/argocd"}}"'
+    cmds:
+      - cmd: echo "📦 Updating Helm dependencies..."
+      - helm dependency update "{{.ARGOCD_CHART_DIR}}"
+      - cmd: echo "✅ Dependencies updated"
+
+  install:
+    desc: "Install Cilium CNI, then ArgoCD via Helm (with Git SSH repo)"
+    summary: |
+      1. Install the cilium Helm chart (helmcharts/cilium) — CNI + kube-proxy replacement + LB.
+      2. Wait for the Cilium agents and nodes to become Ready.
+      3. Install or upgrade ArgoCD with repository SSH key and URL from Taskfile vars:
+         ARGOCD_GIT_REPO_KEY, ARGOCD_GIT_REPO_URL, ARGOCD_GIT_SSH_PRIVATE_KEY_PATH
+
+      Override at runtime, e.g.:
+        task install ARGOCD_GIT_REPO_URL=git@github.com:org/other.git \\
+          ARGOCD_GIT_SSH_PRIVATE_KEY_PATH=$HOME/.ssh/id_ed25519
+    cmds:
+      - task: install-cilium
+      - task: wait-cilium
+      - task: install-crds
+      - task: install-argocd-chart
+        vars:
+          # Fresh cluster: apply values-bootstrap.yaml so the not-yet-installable resources
+          # (dev-cluster ExternalSecret, argocd-server HTTPRoute, kube-system/coredns) are
+          # skipped on first install; Argo CD self-heals / adopts them afterwards.
+          ARGOCD_BOOTSTRAP: "true"
+
+  install-cilium:
+    desc: "Install the cilium Helm chart if the cluster has no working CNI yet (skips when already serving)"
+    summary: |
+      Installs Cilium from helmcharts/cilium with values.yaml + CILIUM_VALUES (default
+      values/local.yaml for the management cluster). The Cilium subchart is vendored in
+      charts/, so no `helm dependency update` is needed. On a fresh Talos cluster this is the
+      first workload installed — nodes stay NotReady until Cilium's agents are up.
+
+      IDEMPOTENT: if daemonset/cilium is already fully Ready the Helm step is SKIPPED. Re-running
+      `task bootstrap` on a live cluster otherwise fails here — once Argo CD adopts the chart it
+      owns the DaemonSet's fields and `helm upgrade` loses a server-side-apply conflict against
+      the argocd-controller field manager, marking the release `failed` and aborting bootstrap
+      on a cluster whose datapath was fine.
+
+      Force the Helm run anyway (initial bring-up, Argo-CD-down recovery):
+        task install-cilium CILIUM_FORCE_INSTALL=true
+    vars:
+      CILIUM_CHART_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/{{.CILIUM_CHART_PATH | default "helmcharts/cilium"}}"'
+    env:
+      CILIUM_CHART_DIR: "{{.CILIUM_CHART_DIR}}"
+      CILIUM_RELEASE_NAME: "{{.CILIUM_RELEASE_NAME}}"
+      CILIUM_NAMESPACE: "{{.CILIUM_NAMESPACE}}"
+      CILIUM_VALUES: "{{.CILIUM_VALUES}}"
+      CILIUM_FORCE_INSTALL: "{{.CILIUM_FORCE_INSTALL | default \"false\"}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/install-cilium.sh"
+
+  install-crds:
+    desc: "Install every CRD that must exist before Argo CD syncs anything (Gateway API + prometheus-operator)"
+    summary: |
+      Umbrella task for the CRDs no chart can install for itself in time.
+
+      Argo CD fails a whole Application when a manifest references a kind the API server does not
+      serve yet, and the charts that WOULD supply these CRDs cannot be moved early enough:
+
+        - Gateway API      — the helmcharts/gateway-api-crds chart syncs too late for the
+                             charts that need it. 17 charts template an HTTPRoute, 4 a TCPRoute.
+        - prometheus-operator — supplied by kube-prometheus-stack, which cannot go first because
+                             its own ExternalSecrets resolve against Vault (wave 3) and
+                             external-secrets (wave 4).
+
+      Both are idempotent server-side applies; safe to re-run on a live cluster.
+    cmds:
+      - task: install-gateway-api-crds
+      - task: install-prometheus-operator-crds
+
+  install-prometheus-operator-crds:
+    desc: "Install prometheus-operator CRDs (monitoring.coreos.com) from the vendored kube-prometheus-stack chart"
+    summary: |
+      Applies the CRDs bundled in helmcharts/kube-prometheus-stack/charts/*.tgz, so the version
+      installed is by construction the one Argo CD is about to deploy — no network fetch, no
+      version skew.
+
+      Needed because ServiceMonitor/PodMonitor/PrometheusRule are referenced by cert-manager (1),
+      keda (2), backstage/n8n/vault/zitadel (3) and external-secrets (4).
+
+      Safe to re-run — server-side apply.
+    env:
+      REPO_ROOT: "{{.REPO_ROOT}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/install-prometheus-operator-crds.sh"
+
+  install-gateway-api-crds:
+    desc: "Install the Gateway API CRDs (gateway.networking.k8s.io) — required by every HTTPRoute/TCPRoute chart"
+    summary: |
+      Installs the Kubernetes Gateway API CRDs from the upstream release manifest.
+
+      helmcharts/gateway-api-crds packages the same manifest for Argo CD, but it cannot sync
+      early enough for the charts that depend on it. Without these CRDs, every chart templating
+      an HTTPRoute or TCPRoute fails to sync with:
+        The Kubernetes API could not find gateway.networking.k8s.io/HTTPRoute for ...
+
+      EXPERIMENTAL channel, deliberately: the standard channel has no TCPRoute, and
+      cloudnative-pg, victoria-metrics, nats and tempo all template one.
+
+      Safe to re-run — it is a server-side apply. Override the pin, e.g.:
+        task install-gateway-api-crds GATEWAY_API_VERSION=v1.5.1
+    env:
+      GATEWAY_API_VERSION: "{{.GATEWAY_API_VERSION}}"
+      GATEWAY_API_CHANNEL: "{{.GATEWAY_API_CHANNEL}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/install-gateway-api-crds.sh"
+
+  wait-cilium:
+    desc: "Wait for Cilium agents and nodes to become Ready"
+    env:
+      CILIUM_NAMESPACE: "{{.CILIUM_NAMESPACE}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/wait-cilium.sh"
+
+  install-argocd-chart:
+    desc: "Install or upgrade ArgoCD Helm release (updates chart deps, injects Git SSH repo)"
+    summary: |
+      Steady-state install/upgrade renders the full values.yaml. Pass ARGOCD_BOOTSTRAP=true
+      (the `install` task does this on a fresh cluster) to additionally apply
+      helmcharts/argocd/values-bootstrap.yaml, which disables the resources plain Helm can't
+      create on a brand-new cluster (dev-cluster ExternalSecret + argocd-server HTTPRoute — CRDs
+      absent; kube-system/coredns ConfigMap — already exists, un-adoptable by Helm). Argo CD
+      self-heals / adopts those from git afterwards.
+    deps:
+      - update-deps
+    vars:
+      ARGOCD_CHART_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/{{.ARGOCD_CHART_PATH | default "helmcharts/argocd"}}"'
+      ARGOCD_SCRIPTS_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/scripts/argocd"'
+    env:
+      ARGOCD_CHART_DIR: "{{.ARGOCD_CHART_DIR}}"
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+      ARGOCD_GIT_REPO_KEY: "{{.ARGOCD_GIT_REPO_KEY}}"
+      ARGOCD_GIT_REPO_URL: "{{.ARGOCD_GIT_REPO_URL}}"
+      ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "{{.ARGOCD_GIT_SSH_PRIVATE_KEY_PATH}}"
+      # Empty unless ARGOCD_BOOTSTRAP=true — install-argocd.sh only adds the overlay when set.
+      ARGOCD_BOOTSTRAP_VALUES: '{{if eq (.ARGOCD_BOOTSTRAP | default "false") "true"}}{{.ARGOCD_CHART_DIR}}/values-bootstrap.yaml{{end}}'
+    cmds:
+      - bash "{{.ARGOCD_SCRIPTS_DIR}}/install-argocd.sh"
+
+  wait-ready:
+    desc: "Wait for ArgoCD pods to be ready"
+    summary: |
+      Waits for all ArgoCD components to be ready:
+      - argocd-server
+      - argocd-repo-server
+      - argocd-applicationset-controller
+
+      Timeout: 5 minutes for each component
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/wait-ready.sh"
+
+  get-initial-admin-password:
+    desc: "Display initial admin password"
+    summary: |
+      Retrieves and displays the initial admin password for ArgoCD.
+
+      Username: admin
+      Password: Retrieved from argocd-initial-admin-secret (plaintext only during first install).
+
+      ⚠️ If argocd-initial-admin-secret no longer exists, the initial plaintext
+      password cannot be retrieved. Use 'task reset-admin-password' or
+      'task change-admin-password' to set a new password.
+    silent: true
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/get-initial-admin-password.sh"
+
+  reset-admin-password:
+    desc: "Reset ArgoCD admin password (prints new plaintext password)"
+    summary: |
+      Resets the admin password by updating argocd-secret with a new bcrypt hash
+      and refreshes admin.passwordMtime. Prints the new plaintext.
+
+      Usage:
+        task reset-admin-password                   # generates a random strong password
+        task reset-admin-password NEW_PASSWORD=pass # sets to provided password
+
+      Requires: htpasswd (apache2-utils) and openssl.
+    silent: true
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+      NEW_PASSWORD: "{{.NEW_PASSWORD}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/reset-admin-password.sh"
+
+  change-admin-password:
+    desc: "Interactively change ArgoCD admin password and patch argocd-secret"
+    summary: |
+      Prompts for a new admin password (with confirmation), generates a bcrypt
+      hash locally, and patches argocd-secret via kubectl. Updates
+      admin.password and admin.passwordMtime.
+
+      Requires: htpasswd (apache2-utils).
+    silent: true
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/change-admin-password.sh"
+
+  self-manage:
+    desc: "Configure ArgoCD to manage itself from Git"
+    summary: |
+      Creates an Application that configures ArgoCD to manage itself.
+
+      After this:
+      - ArgoCD monitors its own configuration in Git
+      - Changes to helmcharts/argocd/ are auto-synced
+      - Self-healing is enabled
+
+      Application manifest: helmcharts/argocd-apps/templates/applications/argocd.yaml
+    vars:
+      ARGOCD_APPS_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/{{.ARGOCD_APPS_PATH | default "helmcharts/argocd-apps"}}"'
+    cmds:
+      - cmd: echo "🔄 Configuring ArgoCD self-management..."
+      - kubectl apply -f "{{.ARGOCD_APPS_DIR}}/templates/applications/argocd.yaml"
+      - cmd: echo "✅ ArgoCD self-management configured"
+      - cmd: echo "   ArgoCD will now manage itself from Git"
+
+  app-of-apps:
+    desc: "Configure app-of-apps pattern"
+    summary: |
+      Creates an Application that manages all ApplicationSets.
+
+      After this:
+      - ArgoCD monitors ApplicationSets in Git
+      - New ApplicationSets are auto-deployed
+      - ApplicationSets can be managed via Git commits
+
+      Application manifest: helmcharts/argocd-apps/templates/applications/argocd-apps.yaml
+    vars:
+      ARGOCD_APPS_DIR:
+        sh: 'echo "$(cd "{{.TASKFILE_DIR}}/.." && pwd)/{{.ARGOCD_APPS_PATH | default "helmcharts/argocd-apps"}}"'
+    cmds:
+      - cmd: echo "📦 Configuring app-of-apps pattern..."
+      - kubectl apply -f "{{.ARGOCD_APPS_DIR}}/templates/applications/argocd-apps.yaml"
+      - cmd: echo "✅ App-of-apps configured"
+      - cmd: echo "   ArgoCD will now manage ApplicationSets from Git"
+
+  destroy-app-of-apps:
+    desc: "⚠️  Destroy everything app-of-apps deployed (ApplicationSets, Applications, workloads) — keeps Argo CD"
+    aliases: [app-of-apps:destroy]
+    summary: |
+      ⚠️  DESTRUCTIVE: the inverse of `task app-of-apps`. Removes the root argocd-apps
+      Application, every ApplicationSet it renders, every Application those generate, and the
+      workloads behind them — across BOTH clusters, since the ApplicationSets target dev as well.
+
+      Argo CD itself is intentionally left running: it is the controller doing the deleting, so
+      removing it mid-cascade would strand every remaining Application on its finalizer. The
+      `argocd` (self-management) and `argocd-apps` Applications are preserved for that reason.
+      Remove Argo CD afterwards with `task uninstall`.
+
+      Order matters, and this task encodes it:
+      1. Release the root argocd-apps Application WITHOUT its resources-finalizer — a cascading
+         delete there would take down the `argocd` Application it manages. Doing it first also
+         stops selfHeal from recreating the ApplicationSets deleted in step 3.
+      2. Add resources-finalizer to every generated Application. The ApplicationSet templates in
+         this repo do NOT set it, so deleting them otherwise orphans every workload.
+      3. Delete all ApplicationSets → garbage-collects the Applications they own.
+      4. Delete the standalone Applications (kube-prometheus-stack, rancher, portainer,
+         victoria-metrics-vmauth) — no ApplicationSet owns those.
+      5. Wait for every Application to finalize; an Application that is gone is a pruned workload
+         tree.
+
+      ⚠️  Cilium and Longhorn are ordinary app-of-apps Applications, so a full run takes out the
+      CNI (network datapath + LoadBalancer IPs) and the storage provisioner (every PV). To tear
+      down the workloads but keep the cluster usable:
+
+        task destroy-app-of-apps KEEP_APPS_EXTRA="local-cilium"
+
+      Options:
+        task destroy-app-of-apps DRY_RUN=true            # print the plan, change nothing
+        task destroy-app-of-apps KEEP_APPS_EXTRA="a b"   # extra Applications to preserve
+        task destroy-app-of-apps DELETE_TIMEOUT=1800     # wait longer in step 5 (default 900s)
+        task destroy-app-of-apps DELETE_NAMESPACES=true  # also delete the leftover managed namespaces
+        task destroy-app-of-apps FORCE_FINALIZERS=true   # strip finalizers off Applications stuck
+                                                         # past the timeout (LEAVES their resources
+                                                         # orphaned — only after inspecting why)
+    prompt: "⚠️  This deletes every ApplicationSet, Application and workload deployed by app-of-apps, on every target cluster. Continue?"
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+      DRY_RUN: "{{.DRY_RUN | default \"false\"}}"
+      DELETE_TIMEOUT: "{{.DELETE_TIMEOUT | default \"900\"}}"
+      FORCE_FINALIZERS: "{{.FORCE_FINALIZERS | default \"false\"}}"
+      DELETE_NAMESPACES: "{{.DELETE_NAMESPACES | default \"false\"}}"
+      KEEP_APPS_EXTRA: "{{.KEEP_APPS_EXTRA | default \"\"}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/destroy-app-of-apps.sh"
+
+  port-forward:
+    desc: "Start port forwarding to ArgoCD UI"
+    summary: |
+      Starts port forwarding to access ArgoCD UI.
+
+      For insecure mode (HTTP): http://localhost:{{.PORT}}
+      For secure mode (HTTPS): https://localhost:{{.PORT}}
+
+      Press Ctrl+C to stop port forwarding.
+    cmds:
+      - cmd: echo "🌐 Starting port forward to ArgoCD UI..."
+      - cmd: 'echo "   Access at: http://localhost:{{.PORT}} (insecure mode)"'
+      - cmd: 'echo "   Or try: https://localhost:{{.PORT}} (secure mode)"'
+      - cmd: echo "   Press Ctrl+C to stop"
+      - cmd: echo ""
+      - kubectl port-forward svc/argocd-server -n {{.ARGOCD_NAMESPACE}} {{.PORT}}:80
+
+  success-message:
+    desc: "Display success message and next steps"
+    silent: true
+    env:
+      PORT: "{{.PORT}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/success-message.sh"
+
+  status:
+    desc: "Check ArgoCD status"
+    summary: |
+      Displays the current status of ArgoCD:
+      - Pod status
+      - Application status
+      - ApplicationSet status
+    cmds:
+      - cmd: echo "📊 ArgoCD Status"
+      - cmd: echo ""
+      - cmd: echo "Pods:"
+      - kubectl get pods -n {{.ARGOCD_NAMESPACE}}
+      - cmd: echo ""
+      - cmd: echo "Applications:"
+      - kubectl get applications -n {{.ARGOCD_NAMESPACE}}
+      - cmd: echo ""
+      - cmd: echo "ApplicationSets:"
+      - kubectl get applicationsets -n {{.ARGOCD_NAMESPACE}}
+
+  logs:
+    desc: "View ArgoCD server logs"
+    summary: |
+      Displays logs from the ArgoCD server component.
+      Useful for debugging issues.
+    cmds:
+      - kubectl logs -n {{.ARGOCD_NAMESPACE}} -l app.kubernetes.io/component=server --tail=100 -f
+
+  uninstall:
+    desc: "Uninstall ArgoCD"
+    summary: |
+      ⚠️  WARNING: This will delete ArgoCD and all managed applications!
+
+      Steps:
+      1. Delete all Applications
+      2. Uninstall ArgoCD Helm release
+      3. Delete namespace
+
+      Use with caution!
+    prompt: "⚠️  This will delete ArgoCD and all Applications. Continue?"
+    env:
+      ARGOCD_NAMESPACE: "{{.ARGOCD_NAMESPACE}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/argocd/uninstall-argocd.sh"
+
+  install-only:
+    desc: "Install Cilium CNI + ArgoCD only (without self-management)"
+    summary: |
+      Installs Cilium, then ArgoCD, without configuring self-management.
+      Use this if you want to configure self-management manually later.
+    cmds:
+      - task: check-prerequisites
+      - task: install
+      - task: wait-ready
+      - task: get-initial-admin-password
+      - cmd: echo ""
+      - cmd: echo "✅ ArgoCD installed successfully"
+      - cmd: echo ""
+      - cmd: echo "To configure self-management later, run:"
+      - cmd: echo "  task self-manage"
+      - cmd: echo "  task app-of-apps"
+
+  sync-all:
+    desc: "Sync all ArgoCD applications"
+    summary: |
+      Triggers a sync for all applications managed by ArgoCD.
+      Requires ArgoCD CLI to be installed.
+    preconditions:
+      - sh: command -v argocd
+        msg: "ArgoCD CLI not found. Install from: https://github.com/argoproj/argo-cd/releases"
+    cmds:
+      - cmd: echo "🔄 Syncing all applications..."
+      - argocd app sync --all
+      - cmd: echo "✅ Sync triggered for all applications"
+
+  restart:
+    desc: "Restart all ArgoCD components"
+    summary: |
+      Performs a rolling restart of all ArgoCD components.
+      Useful when configuration changes need a restart.
+    cmds:
+      - cmd: echo "🔄 Restarting ArgoCD components..."
+      - kubectl rollout restart deployment/argocd-server -n {{.ARGOCD_NAMESPACE}}
+      - kubectl rollout restart deployment/argocd-repo-server -n {{.ARGOCD_NAMESPACE}}
+      - kubectl rollout restart deployment/argocd-applicationset-controller -n {{.ARGOCD_NAMESPACE}}
+      - kubectl rollout restart statefulset/argocd-application-controller -n {{.ARGOCD_NAMESPACE}}
+      - cmd: echo "✅ Restart initiated"
+      - cmd: echo "   Use 'task status' to check restart progress"
+
+  upgrade:
+    desc: "Upgrade ArgoCD to latest version (same Git SSH repo wiring as install)"
+    summary: |
+      Updates ArgoCD chart dependencies and reapplies the Helm release with
+      ARGOCD_GIT_REPO_KEY / ARGOCD_GIT_REPO_URL / ARGOCD_GIT_SSH_PRIVATE_KEY_PATH.
+
+      Steps:
+      1. Update Helm dependencies
+      2. helm upgrade --install with repository credentials
+      3. Wait for argocd-server rollout
+    cmds:
+      - cmd: echo "⬆️  Upgrading ArgoCD..."
+      - task: install-argocd-chart
+      - cmd: echo "⏳ Waiting for rollout to complete..."
+      - kubectl rollout status deployment/argocd-server -n {{.ARGOCD_NAMESPACE}}
+      - cmd: echo "✅ ArgoCD upgraded successfully"
+
+  clean:
+    desc: "Clean up bootstrap temporary files"
+    summary: |
+      Removes temporary files created during bootstrap.
+      Does not affect the ArgoCD installation.
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/helm/clean-chart-deps.sh" "{{.REPO_ROOT}}/{{.ARGOCD_CHART_PATH}}"

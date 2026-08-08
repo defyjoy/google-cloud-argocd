@@ -1,0 +1,121 @@
+version: '3'
+
+# Vault Management Taskfile
+# This Taskfile provides tasks for managing HashiCorp Vault operations.
+# Shell logic lives in scripts/ (run directly with env vars if you prefer).
+
+vars:
+  VAULT_NAMESPACE: vault
+  VAULT_STATEFULSET_NAME: vault
+  VAULT_CLUSTER_PREFIX: local
+  VAULT_REPLICAS: 3
+  VAULT_UNSEAL_KEYS_FILE: hashicorp-vault-init.json
+
+tasks:
+  # Default task - show available tasks
+  default:
+    desc: "Show available tasks"
+    cmds:
+      - task --list
+
+  # Main unseal task - read keys from JSON and unseal all pods
+  unseal:
+    desc: "Unseal all Vault pods using keys from JSON file"
+    summary: |
+      Reads unseal keys from a JSON file and unseals all Vault pods.
+      
+      This task:
+      1. Checks if the JSON file with unseal keys exists
+      2. Extracts the unseal keys from the JSON file
+      3. Unseals each Vault pod (vault-0, vault-1, vault-2)
+      
+      The JSON file should be in the format from 'vault operator init':
+      {
+        "unseal_keys_b64": ["key1", "key2", "key3", "key4", "key5"],
+        ...
+      }
+      
+      Usage:
+      task unseal                                    # Use default file name
+      task unseal VAULT_UNSEAL_KEYS_FILE=my-keys.json  # Use custom file name
+      
+      Prerequisites:
+      - Vault pods must be running
+      - JSON file with unseal keys must exist
+      - kubectl access to the cluster
+    deps:
+      - check-cluster
+      - check-file
+    cmds:
+      - task: unseal-all-pods
+
+  # Check cluster connectivity
+  check-cluster:
+    desc: "Check cluster connectivity"
+    env:
+      VAULT_NAMESPACE: '{{.VAULT_NAMESPACE}}'
+    cmds:
+      - bash scripts/check-cluster.sh
+
+  # Check if JSON file exists
+  check-file:
+    desc: "Check if unseal keys file exists"
+    env:
+      VAULT_UNSEAL_KEYS_FILE: '{{.VAULT_UNSEAL_KEYS_FILE}}'
+    cmds:
+      - bash scripts/check-unseal-file.sh
+
+  # Unseal all pods
+  unseal-all-pods:
+    desc: "Unseal all Vault pods"
+    env:
+      VAULT_NAMESPACE: '{{.VAULT_NAMESPACE}}'
+      VAULT_CLUSTER_PREFIX: '{{.VAULT_CLUSTER_PREFIX}}'
+      VAULT_REPLICAS: '{{.VAULT_REPLICAS}}'
+      VAULT_UNSEAL_KEYS_FILE: '{{.VAULT_UNSEAL_KEYS_FILE}}'
+    cmds:
+      - bash scripts/unseal-all-pods.sh
+
+  # Check Vault status
+  status:
+    desc: "Check status of all Vault pods"
+    summary: |
+      Displays the status of all Vault pods.
+    env:
+      VAULT_NAMESPACE: '{{.VAULT_NAMESPACE}}'
+      VAULT_CLUSTER_PREFIX: '{{.VAULT_CLUSTER_PREFIX}}'
+      VAULT_REPLICAS: '{{.VAULT_REPLICAS}}'
+    cmds:
+      - bash scripts/status.sh
+
+  # Display Vault credentials from JSON
+  credentials:
+    desc: "Display Vault root token and unseal keys from JSON file"
+    summary: |
+      Displays the root token and unseal keys from the JSON file.
+      
+      ⚠️  WARNING: This displays sensitive credentials. Ensure output is secure.
+    env:
+      VAULT_UNSEAL_KEYS_FILE: '{{.VAULT_UNSEAL_KEYS_FILE}}'
+    cmds:
+      - bash scripts/credentials.sh
+
+  # Create a dummy initialization file for testing
+  create-dummy-init:
+    desc: "Create a dummy hashicorp-vault-init.json file for testing"
+    summary: |
+      Creates a dummy initialization file with test credentials.
+      
+      ⚠️  WARNING: This creates FAKE credentials. Use only for testing!
+      This file should NOT be used to unseal real Vault instances.
+      
+      The generated file contains dummy Base64-encoded strings that
+      look similar to real Vault credentials but will NOT work with real Vault.
+      
+      Usage for testing:
+      task create-dummy-init
+      task unseal  # Will fail with real Vault but good for testing the script
+    env:
+      VAULT_UNSEAL_KEYS_FILE: '{{.VAULT_UNSEAL_KEYS_FILE}}'
+    cmds:
+      - bash scripts/create-dummy-init.sh

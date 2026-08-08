@@ -1,0 +1,73 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vault-backup.fullname" . }}-script
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vault-backup.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup-script
+data:
+  backup.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+    die() { log "ERROR: $*"; exit 1; }
+
+    : "${VAULT_ADDR:?}"
+    : "${VAULT_TOKEN:?}"
+    : "${S3_BUCKET:?}"
+    : "${S3_PREFIX:?}"
+    : "${S3_REGION:?}"
+    : "${ARCH:?}"
+    : "${RCLONE_RELEASE:?}"
+    : "${AWS_ACCESS_KEY_ID:?}"
+    : "${AWS_SECRET_ACCESS_KEY:?}"
+
+    WORK="${WORK_DIR:-/work}"
+    BIN="${WORK}/bin"
+    OUT="${WORK}/out"
+    mkdir -p "${BIN}" "${OUT}"
+    export PATH="${BIN}:${PATH}"
+    export HOME="${WORK}"
+    export VAULT_TOKEN
+    [ "${VAULT_SKIP_VERIFY:-false}" = "true" ] && export VAULT_SKIP_VERIFY=true
+
+    # rclone only — vault CLI comes from the hashicorp/vault image
+    log "Downloading rclone ${RCLONE_RELEASE}"
+    curl -fsSL \
+      "https://downloads.rclone.org/${RCLONE_RELEASE}/rclone-${RCLONE_RELEASE}-linux-${ARCH}.zip" \
+      -o "${WORK}/rclone.zip"
+    unzip -qo "${WORK}/rclone.zip" -d "${WORK}"
+    mv "${WORK}/rclone-${RCLONE_RELEASE}-linux-${ARCH}/rclone" "${BIN}/rclone"
+    chmod +x "${BIN}/rclone"
+
+    TS="$(date -u +%Y%m%dT%H%M%SZ)"
+    DAY="$(date -u +%Y/%m/%d)"
+    SNAP="${OUT}/raft-snapshot-${TS}.snap"
+
+    log "vault operator raft snapshot save ${SNAP}"
+    vault operator raft snapshot save "${SNAP}"
+    [ -s "${SNAP}" ] || die "snapshot is empty"
+    sha256sum "${SNAP}" | tee "${SNAP}.sha256"
+
+    # Avoid rclone NOTICE about missing config — auth is via RCLONE_CONFIG_S3_* env.
+    mkdir -p "${HOME}/.config/rclone"
+    : > "${HOME}/.config/rclone/rclone.conf"
+
+    export RCLONE_CONFIG_S3_TYPE=s3
+    export RCLONE_CONFIG_S3_PROVIDER=AWS
+    export RCLONE_CONFIG_S3_ENV_AUTH=false
+    export RCLONE_CONFIG_S3_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+    export RCLONE_CONFIG_S3_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+    export RCLONE_CONFIG_S3_REGION="${S3_REGION}"
+    [ -n "${S3_ENDPOINT:-}" ] && export RCLONE_CONFIG_S3_ENDPOINT="${S3_ENDPOINT}"
+    [ "${S3_FORCE_PATH_STYLE:-false}" = "true" ] && export RCLONE_CONFIG_S3_FORCE_PATH_STYLE=true
+
+    DEST="s3:${S3_BUCKET}/${S3_PREFIX}/${DAY}"
+    log "Uploading → ${DEST}/"
+    rclone copy "${SNAP}" "${DEST}/" --s3-no-check-bucket
+    rclone copy "${SNAP}.sha256" "${DEST}/" --s3-no-check-bucket
+    log "Backup complete: $(basename "${SNAP}")"
+{{- end }}

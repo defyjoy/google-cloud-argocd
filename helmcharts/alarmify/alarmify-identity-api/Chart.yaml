@@ -1,0 +1,6 @@
+apiVersion: v2
+name: alarmify-identity-api
+description: A Helm chart for Alarmify Identity API
+type: application
+version: 0.1.0
+appVersion: "v0.0.5"

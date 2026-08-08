@@ -1,0 +1,36 @@
+# Synthetic heartbeat alert to verify PagerDuty delivery periodically
+{{- $kps := index .Values "kube-prometheus-stack" }}
+{{- if and $kps.alertmanager.enabled $kps.alertmanager.pagerduty.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pagerduty-heartbeat
+  namespace: kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    prometheus: kube-prometheus
+    role: alert-rules
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  groups:
+    - name: synthetic.heartbeat
+      rules:
+        - alert: PagerDutyHeartbeat
+          # Fire for a 5-minute window approximately once every 30 days
+          # Use day-of-month to trigger on the 1st of each month between 00:00-00:05 UTC
+          expr: (day_of_month() == 1) and (hour() == 0) and (minute() < 5)
+          for: 1m
+          labels:
+            severity: info
+            service: kubernetes
+          annotations:
+            summary: "Synthetic PagerDuty heartbeat"
+            description: "Automated monthly heartbeat to verify Alertmanager -> PagerDuty delivery path is healthy."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/PagerDutyHeartbeat.md"
+{{- end }}
+

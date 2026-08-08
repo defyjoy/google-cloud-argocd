@@ -1,0 +1,81 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mlflow
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: mlflow
+    app.kubernetes.io/instance: mlflow
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          mlflow: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-mlflow"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: mlflow
+        app.kubernetes.io/instance: mlflow
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/mlflow
+        helm:
+          valueFiles:
+            - values.yaml
+          parameters:
+            - name: "mlflow.ingress.hosts[0].host"
+              value: {{ `"mlflow.{{name}}.workquark.org"` }}
+            - name: "mlflow.ingress.tls[0].secretName"
+              value: {{ `"mlflow-{{name}}-tls"` }}
+            - name: "mlflow.ingress.tls[0].hosts[0]"
+              value: {{ `"mlflow.{{name}}.workquark.org"` }}
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: mlflow
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "mlflow"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

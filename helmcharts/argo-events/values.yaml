@@ -1,0 +1,70 @@
+enabled: true
+
+argo-events:
+  controller:
+    enabled: true
+    replicas: 1
+    metrics:
+      enabled: true
+      service:
+        enabled: true
+        port: 7777
+
+  eventBus:
+    enabled: true
+    nats:
+      native:
+        enabled: true
+        replicas: 3
+        auth: none
+        persistence:
+          enabled: true
+          size: 10Gi
+          storageClassName: ""
+          accessMode: ReadWriteOnce
+
+  eventSource:
+    enabled: true
+
+  sensor:
+    enabled: true
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  serviceAccount:
+    create: true
+    name: argo-events
+
+  rbac:
+    create: true

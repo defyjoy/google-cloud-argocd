@@ -1,0 +1,6 @@
+apiVersion: v2
+name: alarmify-incident-api
+description: A Helm chart for Alarmify Incident API
+type: application
+version: 0.1.0
+appVersion: "v0.0.15"

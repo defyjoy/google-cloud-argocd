@@ -1,0 +1,81 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          redis: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-redis"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: redis
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/redis
+        helm:
+          valueFiles:
+            - values.yaml
+          parameters:
+            - name: "redis.ingress.hosts[0].host"
+              value: {{ `"redis.{{name}}.workquark.org"` }}
+            - name: "redis.ingress.tls[0].secretName"
+              value: {{ `"redis-{{name}}-tls"` }}
+            - name: "redis.ingress.tls[0].hosts[0]"
+              value: {{ `"redis.{{name}}.workquark.org"` }}
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: redis
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "redis"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cloudnative-pg
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cloudnative-pg
+    app.kubernetes.io/instance: cloudnative-pg
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    argocd.argoproj.io/sync-wave: "1"  # Deploy early as it's infrastructure
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          cloudnative-pg: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-cloudnative-pg"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: cloudnative-pg
+        app.kubernetes.io/instance: cloudnative-pg
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/cloudnative-pg
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: cloudnative-pg-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "cloudnative-pg-system"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3
+
+

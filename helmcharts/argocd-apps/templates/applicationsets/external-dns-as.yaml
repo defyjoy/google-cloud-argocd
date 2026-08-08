@@ -1,0 +1,92 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: external-dns
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/instance: external-dns
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchExpressions:
+          - key: environment
+            operator: In
+            values:
+              - dev
+              - local
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-external-dns"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: external-dns
+        app.kubernetes.io/instance: external-dns
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/external-dns
+        helm:
+          # values.yaml (chart root) holds the shared defaults; values/<environment>.yaml
+          # holds only the differential overrides for that environment, picked
+          # automatically from the target cluster's `environment` label (set on the
+          # cluster Secret, e.g. helmcharts/argocd/templates/cluster/local-cluster-secret.yaml
+          # and .../dev-cluster-secret.yaml) -> values/local.yaml / values/dev.yaml.
+          # ignoreMissingValueFiles lets a cluster sync fine even if no
+          # values/<environment>.yaml override exists yet (e.g. local today, which needs
+          # no overrides on top of the shared defaults).
+          #
+          # To key off cluster name instead of environment (e.g. multiple
+          # clusters sharing one environment but needing distinct configs),
+          # swap the second entry to use the cluster name var instead.
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: external-dns
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "external-dns"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

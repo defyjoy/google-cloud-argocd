@@ -1,0 +1,121 @@
+enabled: true
+
+cert-manager:
+  installCRDs: true
+
+  global:
+    imagePullSecrets: []
+    nodeSelector: {}
+    commonLabels: {}
+    priorityClassName: ""
+
+  replicaCount: 1
+
+  image:
+    repository: quay.io/jetstack/cert-manager-controller
+    tag: v1.19.1
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 200m
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+
+  webhook:
+    image:
+      repository: quay.io/jetstack/cert-manager-webhook
+      tag: v1.19.1
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+  cainjector:
+    image:
+      repository: quay.io/jetstack/cert-manager-cainjector
+      tag: v1.19.1
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+  prometheus:
+    enabled: true
+    servicemonitor:
+      enabled: true
+      prometheusInstance: default
+      targetPort: 9402
+      path: /metrics
+      interval: 60s
+      scrapeTimeout: 30s
+      annotations: {}
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  extraArgs:
+    - --enable-gateway-api=true
+
+  extraEnv: []
+
+  podAnnotations: {}
+
+  podLabels: {}
+
+  serviceAnnotations: {}
+
+  serviceLabels: {}
+
+  featureGates: ""
+
+  clusterResourceNamespace: cert-manager
+

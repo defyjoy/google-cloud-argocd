@@ -1,0 +1,69 @@
+{{- /*
+LAN-only HTTPRoute for zitadel.home.arpa. Always enabled — the LAN hostname is how Terraform
+and LAN admin traffic reach Zitadel at all.
+
+Separate from the upstream chart's httproute_zitadel.yaml because that template renders a
+single `filters` block shared across every entry in gateway.httpRoute.hostnames, and Gateway
+API cannot scope filters per hostname within one route: filters are per-rule, HTTPRouteMatch
+has no hostname field, and matching the Host header is not viable (the header-name pattern
+forbids `:` so `:authority` is invalid, and Envoy exposes the Host only as that pseudo-header).
+
+Setting x-zitadel-public-host on the shared route would rewrite the OIDC issuer for PUBLIC
+traffic too, breaking alarmify-ui, JWKS verification in ingest/incident, and Kiali.
+
+See helmcharts/zitadel/README.md ("Two domains, one instance") and
+alarmify-common-infra/terraform/zitadel/README.md §3.
+*/ -}}
+{{- /*
+Use the subchart's own fullname helper for both the route name and the backend, so this can
+never drift from the Service the upstream chart actually creates. Do NOT write
+`{{ .Release.Name }}-zitadel`: the ApplicationSet names the release "<cluster>-zitadel", and
+the helper collapses that to just the release name (because it already contains the chart
+name), so the naive form yields "local-zitadel-zitadel" and the backend is not found.
+*/ -}}
+{{- $fullName := include "zitadel.fullname" . -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-lan
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: zitadel
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: lan-route
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: gateway-system
+      sectionName: https
+    - name: gateway
+      namespace: gateway-system
+      sectionName: http
+  hostnames:
+    - zitadel.home.arpa
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $fullName }}
+          port: 8080
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              # Instance resolution. Zitadel matches the inbound host against registered
+              # *instance* domains and only ExternalDomain is registered; trusted domains do
+              # not route. Without this pin the LAN name fails with:
+              #   Message=Instance not found (QUERY-1kIjX)
+              - name: x-zitadel-instance-host
+                value: zitadel.workquark.org
+              # Makes Zitadel issue/emit the LAN name instead of ExternalDomain, so the
+              # Terraform provider's discovered issuer matches the host it connected to.
+              # REQUIRES zitadel.home.arpa to be a registered *trusted* domain (done
+              # 2026-07-28): POST /admin/v1/trusted_domains {"domain":"zitadel.home.arpa"}
+              # Without it every LAN request fails with:
+              #   Parent=(public domain "zitadel.home.arpa" not trusted)
+              - name: x-zitadel-public-host
+                value: zitadel.home.arpa

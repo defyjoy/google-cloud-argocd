@@ -1,0 +1,34 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-httproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: alarmify-ui
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: httproute
+    app.kubernetes.io/part-of: alarmify
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.httproute.externalDns.hostname | quote }}
+    external-dns.alpha.kubernetes.io/class: {{ .Values.httproute.externalDns.class | quote }}
+spec:
+  hostnames:
+    - {{ .Values.httproute.hostname | quote }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.httproute.gatewayName | quote }}
+      namespace: {{ .Values.httproute.gatewayNamespace | quote }}
+      sectionName: {{ .Values.httproute.gatewayListener | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.httproute.path | quote }}
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Release.Name }}
+          port: {{ .Values.servicePort }}
+          weight: 1

@@ -1,0 +1,29 @@
+{{- /*
+Exposes Tempo's OTLP gRPC receiver on the north-south gateway for dev's cross-cluster trace
+export. Same pattern as helmcharts/victoria-metrics's vminsert-tcproute.yaml, minus the auth
+hop (Tempo's OTLP receiver has no built-in auth option to proxy through).
+*/ -}}
+{{- if .Values.externalExposure.enabled }}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tempo-otlp-tcproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: tempo-otlp-tcproute
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: tempo-otlp
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Release.Name }}
+          port: 4317
+          weight: 1
+{{- end }}

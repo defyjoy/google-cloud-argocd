@@ -1,0 +1,75 @@
+enabled: true
+
+external-dns:
+  serviceAccount:
+    create: true
+    automountServiceAccountToken: true
+    annotations:
+      argocd.argoproj.io/managed: "true"
+
+  rbac:
+    create: true
+    additionalPermissions: []
+
+  commonLabels:
+    name: external-dns
+
+  deploymentStrategy:
+    type: Recreate
+
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  logLevel: info
+  logFormat: text
+  interval: 1m
+  triggerLoopOnEvent: true
+
+  policy: sync
+  registry: txt
+  txtOwnerId: external-dns
+  txtPrefix: external-dns
+
+  domainFilters:
+    - workquark.org
+
+  annotationFilter: external-dns.alpha.kubernetes.io/class=cloudflare
+
+  sources:
+    - gateway-httproute
+    - service
+    - crd
+
+  provider:
+    name: cloudflare
+
+  env:
+    - name: CF_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: cloudflare-api-token
+          key: api-token
+
+  extraArgs:
+    - --cloudflare-proxied

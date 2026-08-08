@@ -1,0 +1,27 @@
+apiVersion: v2
+name: argo-events
+description: A Helm chart for Argo Events - Event-driven workflow automation for Kubernetes
+
+type: application
+version: 0.1.0
+appVersion: "1.7.4"
+
+dependencies:
+  - name: argo-events
+    version: 2.2.0
+    repository: https://argoproj.github.io/argo-helm
+    condition: argo-events.enabled
+
+keywords:
+  - argo-events
+  - events
+  - event-driven
+  - automation
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/argoproj/argo-events

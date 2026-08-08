@@ -1,0 +1,91 @@
+enabled: true
+
+rancher:
+  hostname: rancher.workquark.org
+
+  replicas: 3
+
+  image:
+    repository: rancher/rancher
+    tag: v2.12.3
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+
+  ingress:
+    enabled: false
+    ingressClassName: "nginx"
+    hosts:
+      - host: rancher.workquark.org
+        paths:
+          - /
+    tls:
+      source: none
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+  extraEnv:
+    - name: CATTLE_PROMETHEUS_METRICS
+      value: "true"
+    - name: CATTLE_AGENT_IMAGE
+      value: "rancher/rancher-agent:v2.12.3"
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  persistence:
+    enabled: true
+    storageClass: standard-rwo
+    accessMode: ReadWriteOnce
+    size: 20Gi
+
+  monitoring:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+
+  certificates:
+    source: "letsEncrypt"
+    letsEncrypt:
+      email: "admin@workquark.org"
+      environment: "production"
+
+  labels:
+    app.kubernetes.io/name: rancher
+    app.kubernetes.io/instance: rancher
+    app.kubernetes.io/component: server
+
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"

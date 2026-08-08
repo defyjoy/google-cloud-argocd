@@ -1,0 +1,27 @@
+apiVersion: v2
+name: falco
+description: A Helm chart for Falco - Runtime security monitoring
+
+type: application
+version: 0.1.0
+appVersion: "0.37.1"
+
+dependencies:
+  - name: falco
+    version: 3.2.0
+    repository: https://falcosecurity.github.io/charts
+    condition: falco.enabled
+
+keywords:
+  - falco
+  - security
+  - monitoring
+  - runtime
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/falcosecurity/falco

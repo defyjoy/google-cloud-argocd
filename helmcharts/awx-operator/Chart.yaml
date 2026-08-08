@@ -1,0 +1,27 @@
+apiVersion: v2
+name: awx-operator
+description: A Helm chart for AWX Operator - Kubernetes operator for AWX/Ansible Tower
+
+type: application
+version: 0.1.0
+appVersion: "2.7.0"
+
+dependencies:
+  - name: awx-operator
+    version: 2.7.0
+    repository: https://ansible.github.io/awx-operator
+    condition: awx-operator.enabled
+
+keywords:
+  - awx
+  - ansible
+  - tower
+  - automation
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/ansible/awx-operator

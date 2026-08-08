@@ -1,0 +1,27 @@
+{{- /*
+  Cilium LoadBalancer IP pool -- the cluster's only source of LoadBalancer IPs. Renders nothing
+  until the cluster's values/<environment>.yaml supplies addresses, so a cluster can sync before its pool
+  is decided. Later sync-wave than the Cilium install so the CRD (registered by the Cilium
+  operator) exists before this CR is applied.
+*/ -}}
+{{- if and .Values.loadBalancer.enabled .Values.loadBalancer.addresses }}
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: {{ .Values.loadBalancer.poolName }}
+  annotations:
+    # Apply AFTER the Cilium operator (default wave 0) so the CRD it registers at runtime
+    # exists; SkipDryRunOnMissingResource stops the operator-install and this CR from
+    # deadlocking the whole app's first sync ("synchronization tasks are not valid") before
+    # the CRD is present.
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/component: loadbalancer
+spec:
+  blocks:
+    {{- range .Values.loadBalancer.addresses }}
+    - cidr: {{ . | quote }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,118 @@
+argo-workflows:
+  enabled: true
+
+  server:
+    enabled: true
+    replicas: 1
+
+    serviceType: ClusterIP
+    servicePort: 2746
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+
+    ingress:
+      enabled: false
+
+    httproute:
+      enabled: true
+      labels:
+        app.kubernetes.io/name: argo-workflows
+        app.kubernetes.io/component: server
+      annotations: {}
+      parentRefs:
+        - name: default
+          namespace: envoy-gateway-system
+          group: gateway.networking.k8s.io
+          kind: Gateway
+          sectionName: http
+        - name: default
+          namespace: envoy-gateway-system
+          group: gateway.networking.k8s.io
+          kind: Gateway
+          sectionName: https
+      hostnames:
+        - argo-workflows.workquark.org
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
+
+    authModes:
+      - sso
+
+    sso:
+      enabled: true
+      issuer: https://github.com
+      clientId:
+        name: argo-server-sso
+        key: client-id
+      clientSecret:
+        name: argo-server-sso
+        key: client-secret
+      redirectUrl: "https://argo-workflows.workquark.org/oauth2/callback"
+      rbac:
+        enabled: true
+      scopes:
+        - "read:user"
+        - "user:email"
+      sessionExpiry: "24"
+      insecureSkipVerify: false
+      filterGroupsRegex: []
+
+  controller:
+    enabled: true
+    replicas: 1
+
+    metricsConfig:
+      enabled: true
+      port: 9090
+      servicePort: 8080
+      servicePortName: metrics
+      path: /metrics
+      interval: 30s
+      secure: false
+      portName: metrics
+      scheme: http
+      headlessService: false
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+  workflow:
+    serviceAccount:
+      create: true
+      name: argo-workflow
+    rbac:
+      create: true

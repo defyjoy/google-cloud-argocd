@@ -1,0 +1,27 @@
+apiVersion: v2
+name: mlflow
+description: A Helm chart for MLflow - Machine learning lifecycle management
+
+type: application
+version: 0.1.0
+appVersion: "2.8.1"
+
+dependencies:
+  - name: mlflow
+    version: 2.8.1
+    repository: https://charts.bitnami.com/bitnami
+    condition: mlflow.enabled
+
+keywords:
+  - mlflow
+  - machine-learning
+  - mlops
+  - lifecycle
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/mlflow/mlflow

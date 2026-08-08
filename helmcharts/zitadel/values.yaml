@@ -1,0 +1,141 @@
+enabled: true
+
+externalSecrets:
+  enabled: true
+  secretStore: vault-secretstore
+  refreshInterval: 1h
+  masterkey:
+    vaultPath: alarmify/local/zitadel/masterkey
+    secretName: zitadel-masterkey
+  database:
+    vaultPath: alarmify/local/zitadel/database
+    secretName: zitadel-secret-config
+  loginServiceKey:
+    vaultPath: alarmify/local/zitadel/login-service-key
+    secretName: zitadel-login-service-key
+
+zitadel:
+  zitadel:
+    masterkey: "ChangeMeZitadelMasterkey32Char!!"
+
+    configmapConfig:
+      ExternalDomain: zitadel.workquark.org
+      ExternalPort: 443
+      ExternalSecure: true
+      TLS:
+        Enabled: false
+      HTTPClient:
+        DenyList:
+          - localhost
+          - "0.0.0.0/8"
+          - "100.64.0.0/10"
+          - "127.0.0.0/8"
+          - "169.254.0.0/16"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+          - "198.18.0.0/15"
+          - "::/128"
+          - "::1/128"
+          - "fc00::/7"
+          - "fe80::/10"
+      Database:
+        Postgres:
+          Host: postgresql-cluster-rw.cloudnative-pg-system.svc
+          Port: 5432
+          Database: zitadel
+          MaxOpenConns: 20
+          MaxIdleConns: 10
+          User:
+            Username: zitadel
+            SSL:
+              Mode: require
+          Admin:
+            Username: postgres
+            SSL:
+              Mode: require
+
+    secretConfig:
+      Database:
+        Postgres:
+          User:
+            Password: "zitadel-change-me-in-production"
+          Admin:
+            Password: "postgres-change-me-in-production"
+
+  replicaCount: 1
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    readOnlyRootFilesystem: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "500m"
+      memory: 1Gi
+
+  gateway:
+    httpRoute:
+      enabled: true
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: zitadel.workquark.org
+        external-dns.alpha.kubernetes.io/class: cloudflare
+      parentRefs:
+        - name: gateway
+          namespace: gateway-system
+          sectionName: http
+        - name: gateway
+          namespace: gateway-system
+          sectionName: https
+      hostnames:
+        - zitadel.workquark.org
+
+  login:
+    enabled: true
+    loginServiceKeySecretName: zitadel-login-service-key
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    gateway:
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: gateway
+            namespace: gateway-system
+            sectionName: http
+          - name: gateway
+            namespace: gateway-system
+            sectionName: https
+        hostnames:
+          - zitadel.workquark.org
+
+  initJob:
+    enabled: true
+    command: ""
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true

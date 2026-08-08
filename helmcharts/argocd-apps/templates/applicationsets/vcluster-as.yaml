@@ -1,0 +1,149 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: vcluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"  # Deploy after core infrastructure and operators
+spec:
+  generators:
+    # Cluster generator - automatically discovers clusters registered in ArgoCD
+    - clusters:
+        selector:
+          matchLabels:
+            # Deploy to clusters with this label
+            vcluster: "true"
+        values:
+          # Default values for all clusters
+          environment: "production"
+    
+    # Alternative: List generator for explicit cluster definitions
+    # Uncomment this and comment out the clusters generator above if you prefer explicit cluster list
+    # - list:
+    #     elements:
+    #       - cluster: production
+    #         url: https://kubernetes.default.svc
+    #         environment: production
+    #       - cluster: staging
+    #         url: https://staging-cluster.example.com
+    #         environment: staging
+    #       - cluster: development
+    #         url: https://dev-cluster.example.com
+    #         environment: development
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-vcluster"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: vcluster
+        app.kubernetes.io/instance: vcluster
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+        argocd.argoproj.io/sync-wave: "4"
+    spec:
+      project: default
+      
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/vcluster
+        helm:
+          # Use the default values.yaml from the helm chart
+          valueFiles:
+            - values.yaml
+          # Optional: Add cluster-specific values files
+          # Create these files in helmcharts/vcluster/values/<cluster-name>/values.yaml
+          # - {{ `"values/{{name}}/values.yaml"` }}
+          
+          # Minimal parameter overrides (optional)
+          # Use this only for cluster-specific simple overrides
+          # For complex configs, use separate value files above
+          parameters: []
+            # - name: "vcluster.vcluster.name"
+            #   value: {{ `"{{values.vclusterName}}"` }}
+            # - name: "vcluster.vcluster.persistence.size"
+            #   value: {{ `"{{values.persistenceSize}}"` }}
+      
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: vcluster
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        
+        # Managed namespace metadata
+        managedNamespaceMetadata:
+          labels:
+            name: vcluster
+            pod-security.kubernetes.io/enforce: privileged
+            pod-security.kubernetes.io/audit: privileged
+            pod-security.kubernetes.io/warn: privileged
+          annotations:
+            argocd.argoproj.io/managed: "true"
+      
+      # Health assessment
+      # vcluster is healthy when the deployment is ready
+      # No custom health checks needed - uses default Kubernetes health
+      
+      # Ignore differences that are expected
+      ignoreDifferences:
+        # StatefulSet persistentVolumeClaimRetentionPolicy.whenScaled defaults to Retain in Kubernetes
+        # even though the chart only explicitly sets whenDeleted
+        # StatefulSet volumeClaimTemplates may change during runtime
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.persistentVolumeClaimRetentionPolicy.whenScaled
+            - .spec.volumeClaimTemplates
+        # vcluster deployment may have runtime changes
+        - group: apps
+          kind: Deployment
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        # Webhook caBundle may change during runtime
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        # CRD annotations may be modified by the operator
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations
+        # Service annotations may change
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .metadata.annotations
+      
+      revisionHistoryLimit: 10
+

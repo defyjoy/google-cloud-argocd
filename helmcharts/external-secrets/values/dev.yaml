@@ -1,0 +1,24 @@
+vaultClusterSecretStore:
+  vault:
+    server: "https://vault.workquark.org"
+
+external-secrets:
+  externalSecrets:
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        cpu: 25m
+        memory: 32Mi
+
+    webhook:
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 25m
+          memory: 32Mi
+
+    logLevel: debug

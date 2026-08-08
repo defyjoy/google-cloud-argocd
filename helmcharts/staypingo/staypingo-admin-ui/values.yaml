@@ -1,0 +1,42 @@
+image:
+  repository: harbor.workquark.org/staypingo/staypingo-admin-ui
+  tag: v0.0.10
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+containerPort: 3000
+servicePort: 80
+
+environment: prod
+
+imagePullSecrets:
+  - name: staypingo-admin-ui-registry
+
+config:
+  NEXT_PUBLIC_ADMIN_API_URL: "http://admin.staypingo.home.arpa"
+  IDENTITY_API_URL: "http://admin.staypingo.home.arpa"
+  ADMIN_API_URL: "http://admin.staypingo.home.arpa"
+  MASTERDATA_API_URL: "http://admin.staypingo.home.arpa"
+  PG_LISTING_API_URL: "http://admin.staypingo.home.arpa"
+  PHOTO_API_URL: "http://admin.staypingo.home.arpa"
+  LOCATION_API_URL: "http://admin.staypingo.home.arpa"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "200m"
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: harbor/staypingo-registry-credential
+
+httproute:
+  hostname: admin-ui.staypingo.home.arpa
+  path: /
+  gatewayName: gateway
+  gatewayNamespace: gateway-system
+  gatewayListener: http

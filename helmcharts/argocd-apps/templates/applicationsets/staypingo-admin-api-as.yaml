@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: staypingo-admin-api
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: staypingo-admin-api
+    app.kubernetes.io/instance: staypingo-admin-api
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+        values:
+          environment: dev
+          namespace: staypingo-admin-api
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-staypingo-admin-api"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: staypingo-admin-api
+        app.kubernetes.io/instance: staypingo-admin-api
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/staypingo/staypingo-admin-api
+        helm:
+          valueFiles:
+            - values.yaml
+          parameters:
+            - name: environment
+              value: {{ `"{{values.environment}}"` }}
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: {{ `"{{values.namespace}}"` }}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: {{ `"{{values.namespace}}"` }}
+            environment: {{ `"{{values.environment}}"` }}
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

@@ -1,0 +1,73 @@
+{{- if and .Values.nats (default true .Values.nats.enabled) .Values.nats.jetstreamBootstrap.enabled (gt (len .Values.nats.jetstreamBootstrap.streams) 0) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "wrapper.nats.fullname" . }}-jetstream-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/component: jetstream-bootstrap
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    # Runs after the NATS StatefulSet/Service (plain sync, wave 0) is up and Healthy.
+    # BeforeHookCreation+HookSucceeded: each sync deletes the prior run's Job before creating a
+    # fresh one, and cleans up on success -- Job specs are immutable, so a plain sync-wave (no
+    # hook) would fail to apply once this script ever needs to change.
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nats
+        app.kubernetes.io/component: jetstream-bootstrap
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: jetstream-bootstrap
+          image: "natsio/nats-box:0.19.3"
+          env:
+            - name: NATS_URL
+              value: "nats://{{ include "wrapper.nats.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:4222"
+            - name: NATS_USER
+              value: {{ .Values.nats.jetstreamBootstrap.natsUser | quote }}
+            - name: NATS_PASSWORD
+              value: {{ .Values.nats.jetstreamBootstrap.natsPassword | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              NATS="nats --server $NATS_URL --user $NATS_USER --password $NATS_PASSWORD"
+              {{- range .Values.nats.jetstreamBootstrap.streams }}
+              {{- $streamName := .name }}
+              echo "=== ensuring stream {{ $streamName }} ==="
+              if $NATS stream info {{ $streamName }} >/dev/null 2>&1; then
+                echo "stream {{ $streamName }} already exists, skipping create"
+              else
+                $NATS stream add {{ $streamName }} \
+                  --subjects {{ .subjects | quote }} \
+                  --storage {{ .storage | default "file" }} \
+                  --retention {{ .retention | default "limits" }} \
+                  --max-age {{ .maxAge | default "24h" | quote }} \
+                  --dupe-window {{ .dupeWindow | default "2m" | quote }} \
+                  --defaults
+              fi
+              {{- range .consumers }}
+              echo "=== ensuring consumer {{ .name }} on {{ $streamName }} ==="
+              if $NATS consumer info {{ $streamName }} {{ .name }} >/dev/null 2>&1; then
+                echo "consumer {{ .name }} already exists, skipping create"
+              else
+                $NATS consumer add {{ $streamName }} {{ .name }} \
+                  --filter {{ .filterSubject | quote }} \
+                  --ack {{ .ackPolicy | default "explicit" }} \
+                  --deliver {{ .deliverPolicy | default "all" }} \
+                  {{- if (.pull | default true) }}
+                  --pull \
+                  {{- end }}
+                  --defaults
+              fi
+              {{- end }}
+              {{- end }}
+{{- end }}

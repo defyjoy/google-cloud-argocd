@@ -1,0 +1,30 @@
+{{- if .Values.vmalert.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlert
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: alert
+    app.kubernetes.io/managed-by: Helm
+spec:
+  useStrictSecurity: true
+  # Picks up the VMRule objects already converted by victoria-metrics-operator
+  # from the existing Prometheus-operator PrometheusRule CRs.
+  selectAllByDefault: true
+  replicaCount: {{ .Values.vmalert.replicaCount }}
+  evaluationInterval: {{ .Values.vmalert.evaluationInterval | quote }}
+  resources:
+    {{- toYaml .Values.vmalert.resources | nindent 4 }}
+  datasource:
+    url: "http://vmselect-{{ .Release.Name }}.{{ .Release.Namespace }}.svc:8481/select/0/prometheus"
+  # Required whenever any loaded VMRule contains recording rules (some of the converted
+  # PrometheusRule objects do) — vmalert writes recording-rule results back through vminsert.
+  remoteWrite:
+    url: "http://vminsert-{{ .Release.Name }}.{{ .Release.Namespace }}.svc:8480/insert/0/prometheus/api/v1/write"
+  # Existing kube-prometheus-stack Alertmanager — reused as-is, not replaced.
+  notifier:
+    url: {{ .Values.vmalert.notifier.url | quote }}
+{{- end }}

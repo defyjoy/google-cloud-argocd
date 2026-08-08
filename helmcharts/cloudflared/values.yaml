@@ -1,0 +1,63 @@
+enabled: true
+
+externalSecrets:
+  vaultPath: ""
+
+cloudflared:
+  replica:
+    allNodes: false
+    count: 2
+
+  image:
+    repository: cloudflare/cloudflared
+    pullPolicy: IfNotPresent
+    tag: ""
+
+  tunnelSecrets:
+    existingPemFileSecret:
+      name: "cloudflared-credentials"
+      key: "cert.pem"
+    existingConfigJsonFileSecret:
+      name: "cloudflared-credentials"
+      key: "credentials.json"
+
+  tunnelConfig:
+    name: "proxmox-rke2"
+    metricsUpdateFrequency: 5s
+    autoUpdateFrequency: 24h
+    noAutoUpdate: true
+    gracePeriod: 30s
+    retries: 5
+    protocol: auto
+    logLevel: info
+    transportLogLevel: warn
+    connectTimeout: 30s
+    warpRouting: false
+
+  ingress:
+    - service: http_status:404
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    runAsNonRoot: true
+
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    runAsNonRoot: true

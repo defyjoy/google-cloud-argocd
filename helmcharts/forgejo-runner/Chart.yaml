@@ -1,0 +1,25 @@
+apiVersion: v2
+name: forgejo-runner
+description: Wrapper for the WrenIX Forgejo Actions runner Helm chart (act_runner).
+
+type: application
+
+version: 0.1.0
+
+appVersion: "12.7.3"
+
+dependencies:
+  - name: forgejo-runner
+    version: 0.7.6
+    repository: oci://codeberg.org/wrenix/helm-charts
+    condition: forgejo-runner.enabled
+
+keywords:
+  - forgejo
+  - gitea
+  - actions
+  - ci
+
+sources:
+  - https://code.forgejo.org/forgejo/runner
+  - https://wrenix.eu/docs/helm-charts/forgejo-runner

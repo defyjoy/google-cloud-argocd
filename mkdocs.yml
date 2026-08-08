@@ -1,0 +1,7 @@
+# Thin entrypoint so MkDocs 1.6+ can use docs/ as docs_dir (config must not live inside docs_dir).
+# Serve locally: pip install -r docs/requirements-docs.txt && mkdocs serve
+# Full settings and nav: docs/mkdocs.yml
+INHERIT: docs/mkdocs.yml
+docs_dir: docs
+# Must be outside docs_dir (MkDocs forbids nesting site inside sources).
+site_dir: site

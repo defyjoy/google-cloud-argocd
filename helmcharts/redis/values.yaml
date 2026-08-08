@@ -1,0 +1,77 @@
+enabled: true
+
+redis:
+  image:
+    registry: docker.io
+    repository: bitnami/redis
+    tag: "7.2.4"
+    pullPolicy: IfNotPresent
+
+  architecture: standalone
+
+  service:
+    type: ClusterIP
+    port: 6379
+
+  ingress:
+    enabled: false
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: redis.workquark.org
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: redis-tls
+        hosts:
+          - redis.workquark.org
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClassName: ""
+    accessMode: ReadWriteOnce
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  serviceAccount:
+    create: true
+    name: redis
+
+  rbac:
+    create: true

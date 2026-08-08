@@ -1,0 +1,203 @@
+strimzi-kafka-operator:
+  enabled: true
+
+  replicas: 1
+
+  watchNamespaces: []
+  watchAnyNamespace: false
+
+  defaultImageRegistry: quay.io
+  defaultImageRepository: strimzi
+  defaultImageTag: 0.40.0
+
+  image:
+    registry: ""
+    repository: ""
+    name: operator
+    tag: ""
+
+  logLevel: INFO
+  logVolume: co-config-volume
+  logConfigMap: strimzi-cluster-operator
+  logConfiguration: ""
+
+  fullReconciliationIntervalMs: 120000
+  operationTimeoutMs: 300000
+
+  kubernetesServiceDnsDomain: cluster.local
+
+  featureGates: ""
+
+  tmpDirSizeLimit: 1Mi
+
+  extraEnvs: []
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  annotations: {}
+
+  labels: {}
+
+  priorityClassName: ""
+
+  rbac:
+    create: true
+
+  serviceAccountCreate: true
+  serviceAccount: strimzi-cluster-operator
+
+  leaderElection:
+    enable: true
+
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable:
+
+  dashboards:
+    enabled: false
+    namespace: ~
+    label: grafana_dashboard
+    labelValue: "1"
+    annotations: {}
+    extraLabels: {}
+
+  kafka:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  kafkaConnect:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  topicOperator:
+    image:
+      registry: ""
+      repository: ""
+      name: operator
+      tag: ""
+
+  userOperator:
+    image:
+      registry: ""
+      repository: ""
+      name: operator
+      tag: ""
+
+  kafkaInit:
+    image:
+      registry: ""
+      repository: ""
+      name: operator
+      tag: ""
+
+  tlsSidecarEntityOperator:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  kafkaMirrorMaker:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  kafkaBridge:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka-bridge
+      tag: ""
+
+  kafkaExporter:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  kafkaMirrorMaker2:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  cruiseControl:
+    image:
+      registry: ""
+      repository: ""
+      name: kafka
+      tagPrefix: ""
+
+  kanikoExecutor:
+    image:
+      registry: ""
+      repository: ""
+      name: kaniko-executor
+      tag: ""
+
+  mavenBuilder:
+    image:
+      registry: ""
+      repository: ""
+      name: maven-builder
+      tag: ""
+
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+
+  createGlobalResources: true
+
+  createAggregateRoles: false
+
+  labelsExclusionPattern: ""
+
+  generateNetworkPolicy: true
+
+  connectBuildTimeoutMs: 300000

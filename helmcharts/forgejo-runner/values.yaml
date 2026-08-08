@@ -1,0 +1,23 @@
+forgejo-runner:
+  enabled: true
+
+  knownLastVersion: true
+
+  replicaCount: 1
+
+  runner:
+    config:
+      create: true
+      existingInitSecret: forgejo-runner-init
+      instance: ""
+      name: ""
+      token: ""
+
+  securityContext:
+    privileged: true
+
+  resources: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

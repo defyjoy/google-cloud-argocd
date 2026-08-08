@@ -1,0 +1,45 @@
+image:
+  repository: harbor.workquark.org/alarmify/alarmify-incident-api
+  tag: v0.0.20
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+containerPort: 8080
+servicePort: 80
+
+environment: prod
+debug: "true"
+
+imagePullSecrets:
+  - name: alarmify-incident-api-registry
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: alarmify/dev/harbor
+  appVarsKeys:
+    - alarmify/dev/postgres/credentials
+  dbHostOverride: ""
+  secretKeyRefs:
+    - secretKey: ZITADEL_ISSUER
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_ISSUER
+    - secretKey: ZITADEL_AUDIENCE
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_AUDIENCE
+
+httproute:
+  hostname: incident.home.arpa
+  path: /
+  gatewayName: gateway
+  gatewayNamespace: gateway-system
+  gatewayListener: http

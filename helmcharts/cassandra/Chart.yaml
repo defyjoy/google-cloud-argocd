@@ -1,0 +1,27 @@
+apiVersion: v2
+name: cassandra
+description: A Helm chart for Apache Cassandra - Distributed NoSQL database
+
+type: application
+version: 0.1.0
+appVersion: "4.1.4"
+
+dependencies:
+  - name: cassandra
+    version: 0.18.7
+    repository: https://charts.bitnami.com/bitnami
+    condition: cassandra.enabled
+
+keywords:
+  - cassandra
+  - database
+  - nosql
+  - distributed
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/apache/cassandra

@@ -1,0 +1,28 @@
+apiVersion: v2
+name: superset
+description: A Helm chart for Apache Superset - Modern, enterprise-ready business intelligence web application
+
+type: application
+version: 0.1.0
+appVersion: "5.0.0"
+
+dependencies:
+  - name: superset
+    version: 0.15.0
+    repository: https://apache.github.io/superset
+    condition: superset.enabled
+
+keywords:
+  - superset
+  - apache
+  - business-intelligence
+  - analytics
+  - data-visualization
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/apache/superset

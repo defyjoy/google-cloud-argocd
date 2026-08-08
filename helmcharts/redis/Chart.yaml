@@ -1,0 +1,27 @@
+apiVersion: v2
+name: redis
+description: A Helm chart for Redis - In-memory data structure store
+
+type: application
+version: 0.1.0
+appVersion: "7.2.4"
+
+dependencies:
+  - name: redis
+    version: 18.8.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+
+keywords:
+  - redis
+  - database
+  - cache
+  - memory
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/redis/redis

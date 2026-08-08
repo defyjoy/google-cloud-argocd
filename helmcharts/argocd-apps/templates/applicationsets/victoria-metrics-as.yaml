@@ -1,0 +1,98 @@
+# VictoriaMetrics workload ApplicationSet (VMCluster, VMAgent, VMAlert)
+# Chart: helmcharts/victoria-metrics — requires victoria-metrics-operator (CRDs + controller) already installed.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: victoria-metrics
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: victoria-metrics
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    argocd.argoproj.io/sync-wave: "3"  # Deploy after victoria-metrics-operator (wave 2)
+spec:
+  generators:
+    - clusters:
+        # AND'ed with a victoria-metrics=true per-component gate -- unlike
+        # victoria-metrics-operator (lightweight CRDs+controller, safe on every cluster), this
+        # chart is the heavy VMCluster storage/insert/select stack (2x Longhorn-backed
+        # vmstorage replicas etc). A blanket environment match here would silently deploy the
+        # full stack to dev the moment victoria-metrics-operator (its CRD dependency) is
+        # healthy -- both resource-heavy and premature: dev's role is a local VMAgent
+        # remote-writing into this instance on management, not its own storage tier -- see
+        # Stays opt-in like the Istio components until that design lands (Phase 6).
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+            - key: victoria-metrics
+              operator: In
+              values:
+                - "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: "{{`{{name}}`}}-victoria-metrics"
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: victoria-metrics
+        app.kubernetes.io/instance: victoria-metrics
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: "{{`{{name}}`}}"
+        environment: "{{`{{metadata.labels.environment}}`}}"
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/victoria-metrics
+        helm:
+          # See helmcharts/argocd-apps/templates/applicationsets/cilium-as.yaml for the
+          # values-overlay convention this follows.
+          valueFiles:
+            - values.yaml
+            - "values/{{`{{metadata.labels.environment}}`}}.yaml"
+          ignoreMissingValueFiles: true
+      destination:
+        server: "{{`{{server}}`}}"
+        namespace: victoria-metrics
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "victoria-metrics"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+      revisionHistoryLimit: 3

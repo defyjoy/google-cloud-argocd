@@ -1,0 +1,104 @@
+# # Example: How to label a cluster for External DNS deployment
+# # This is a reference file showing how to label clusters
+
+# ---
+# # Production Cluster Example
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: cluster-production
+#   namespace: argocd
+#   labels:
+#     external-dns: "true"
+#     environment: production
+#     cluster-type: production
+#     region: us-west-2
+# type: Opaque
+# stringData:
+#   config: |
+#     apiVersion: v1
+#     kind: Config
+#     clusters:
+#     - cluster:
+#         server: https://production-cluster.example.com:6443
+#         certificate-authority-data: LS0tLS1CRUdJTi...
+#       name: production-cluster
+#     contexts:
+#     - context:
+#         cluster: production-cluster
+#         user: production-user
+#       name: production-context
+#     current-context: production-context
+#     users:
+#     - name: production-user
+#       user:
+#         client-certificate-data: LS0tLS1CRUdJTi...
+#         client-key-data: LS0tLS1CRUdJTi...
+
+# ---
+# # Development Cluster Example
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: cluster-development
+#   namespace: argocd
+#   labels:
+#     external-dns: "true"
+#     environment: development
+#     cluster-type: development
+#     region: us-west-2
+# type: Opaque
+# stringData:
+#   config: |
+#     apiVersion: v1
+#     kind: Config
+#     clusters:
+#     - cluster:
+#         server: https://dev-cluster.example.com:6443
+#         certificate-authority-data: LS0tLS1CRUdJTi...
+#       name: development-cluster
+#     contexts:
+#     - context:
+#         cluster: development-cluster
+#         user: development-user
+#       name: development-context
+#     current-context: development-context
+#     users:
+#     - name: development-user
+#       user:
+#         client-certificate-data: LS0tLS1CRUdJTi...
+#         client-key-data: LS0tLS1CRUdJTi...
+
+# ---
+# # Staging Cluster Example
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: cluster-staging
+#   namespace: argocd
+#   labels:
+#     external-dns: "true"
+#     environment: staging
+#     cluster-type: staging
+#     region: us-west-2
+# type: Opaque
+# stringData:
+#   config: |
+#     apiVersion: v1
+#     kind: Config
+#     clusters:
+#     - cluster:
+#         server: https://staging-cluster.example.com:6443
+#         certificate-authority-data: LS0tLS1CRUdJTi...
+#       name: staging-cluster
+#     contexts:
+#     - context:
+#         cluster: staging-cluster
+#         user: staging-user
+#       name: staging-context
+#     current-context: staging-context
+#     users:
+#     - name: staging-user
+#       user:
+#         client-certificate-data: LS0tLS1CRUdJTi...
+#         client-key-data: LS0tLS1CRUdJTi...

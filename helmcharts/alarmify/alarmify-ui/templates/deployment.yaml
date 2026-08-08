@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: alarmify-ui
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/part-of: alarmify
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alarmify-ui
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: alarmify-ui
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: ui
+        app.kubernetes.io/version: {{ .Values.image.tag | quote }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        {{- range .Values.imagePullSecrets }}
+        - name: {{ .name }}
+        {{- end }}
+      containers:
+        - name: ui
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+          {{- if .Values.externalSecrets.appVarsKeys }}
+          envFrom:
+            - secretRef:
+                name: alarmify-ui-vars
+          {{- end }}
+          env:
+            - name: INCIDENT_API_BASE_URL
+              value: {{ .Values.backendUrls.incidentApi | quote }}
+            - name: INGEST_API_BASE_URL
+              value: {{ .Values.backendUrls.ingestApi | quote }}
+            - name: SCHEDULE_API_BASE_URL
+              value: {{ .Values.backendUrls.scheduleApi | quote }}
+            - name: IDENTITY_API_BASE_URL
+              value: {{ .Values.backendUrls.identityApi | quote }}
+            {{- if .Values.auth.appBaseUrl }}
+            - name: APP_BASE_URL
+              value: {{ .Values.auth.appBaseUrl | quote }}
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

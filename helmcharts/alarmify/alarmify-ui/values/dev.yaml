@@ -1,0 +1,7 @@
+auth:
+  appBaseUrl: "https://ui.workquark.org"
+
+httproute:
+  hostname: ui.workquark.org
+  externalDns:
+    hostname: ui.workquark.org

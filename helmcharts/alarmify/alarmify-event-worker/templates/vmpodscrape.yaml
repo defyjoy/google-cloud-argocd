@@ -1,0 +1,15 @@
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: waypoint
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: waypoint
+  podMetricsEndpoints:
+    - port: ""
+      targetPort: 15020
+      path: /stats/prometheus
+      interval: 30s

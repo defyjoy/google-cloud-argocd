@@ -1,0 +1,63 @@
+# Alerts on Alarmify ingestion delivery failures (migration plan D5).
+# A broken webhook credential (expired legacy JWT, bad OAuth2 client secret,
+# untrusted token_url CA) previously only showed up as silently missing
+# alerts in Alarmify — surface it from Alertmanager's own metrics instead.
+{{- $kps := index .Values "kube-prometheus-stack" }}
+{{- if $kps.alertmanager.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: alarmify-ingestion-delivery
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: alarmify.ingestion
+      rules:
+        - alert: AlarmifyWebhookDeliveryFailing
+          # Webhook notifications to the alarmify receiver are erroring —
+          # covers HTTP 401/403 (auth), 5xx, and OAuth2 token-fetch failures.
+          expr: |
+            increase(alertmanager_notifications_failed_total{integration="webhook"}[15m]) > 0
+          for: 15m
+          labels:
+            severity: warning
+            service: alarmify
+          annotations:
+            summary: "Alertmanager cannot deliver alerts to Alarmify ingest-api"
+            description: >-
+              alertmanager_notifications_failed_total{integration="webhook"} is
+              increasing. Check the alarmify receiver credentials: OAuth2
+              client secret in the alarmify-oauth secret (Vault
+              alarmify/management/alertmanager-oauth), the stepca CA for
+              zitadel.home.arpa, or the legacy alarmify-webhook-token JWT.
+              Inspect: kubectl -n {{ .Release.Namespace }} logs
+              alertmanager-kube-prometheus-stack-alertmanager-0 | grep -i notify
+        - alert: AlarmifyWebhookDeliveryStalled
+          # No successful webhook delivery for an hour while alerts other
+          # than the Watchdog are firing — the pipeline is likely dead.
+          expr: |
+            (
+              sum(increase(alertmanager_notifications_total{integration="webhook"}[1h])) == 0
+              or absent(alertmanager_notifications_total{integration="webhook"})
+            )
+            and on()
+            (count(ALERTS{alertstate="firing", alertname!~"Watchdog|InfoInhibitor"}) > 0)
+          for: 30m
+          labels:
+            severity: warning
+            service: alarmify
+          annotations:
+            summary: "No Alarmify webhook deliveries despite firing alerts"
+            description: >-
+              Alerts are firing but Alertmanager has sent no webhook
+              notifications in the last hour. Verify the alarmify receiver
+              configuration and secrets.
+{{- end }}

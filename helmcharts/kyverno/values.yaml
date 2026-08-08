@@ -1,0 +1,110 @@
+enabled: true
+
+kyverno:
+  crds:
+    install: true
+
+  rbac:
+    roles:
+      aggregate:
+        admin: true
+        view: true
+
+  admissionController:
+    replicas: 2
+
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 25s
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  backgroundController:
+    enabled: true
+    replicas: 1
+
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 25s
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  cleanupController:
+    enabled: true
+    replicas: 1
+
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 25s
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  reportsController:
+    enabled: true
+    replicas: 1
+
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 25s
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  features:
+    policyExceptions:
+      enabled: false
+      namespace: ""
+
+  global:
+    nodeSelector: {}
+    tolerations: []
+
+policies:
+  protectArgocdClusterSecrets:
+    enabled: true
+    validationFailureAction: Audit
+    argocdNamespace: argocd
+    argocdControllerServiceAccount: argocd-application-controller

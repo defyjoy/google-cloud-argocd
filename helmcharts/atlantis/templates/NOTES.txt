@@ -1,0 +1,31 @@
+1. Get the application URL by running these commands:
+{{- if .Values.atlantis.ingress.enabled }}
+{{- range $host := .Values.atlantis.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.atlantis.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.atlantis.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "atlantis.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.atlantis.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "atlantis.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "atlantis.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.atlantis.service.port }}
+{{- else if contains "ClusterIP" .Values.atlantis.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "atlantis.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+2. Configure your Git repository webhook to point to the Atlantis URL with the webhook secret.
+
+3. Ensure the following secrets are configured via External Secrets:
+   - github-token (or gitlab-token)
+   - webhook-secret (or gitlab-webhook-secret)
+
+4. Check the Atlantis logs to verify it's working correctly:
+   kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "atlantis.fullname" . }}

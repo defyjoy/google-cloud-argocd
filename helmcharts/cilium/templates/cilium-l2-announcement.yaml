@@ -1,0 +1,29 @@
+{{- /*
+  Cilium L2 announcement policy (ARP/NDP). One node, leader-elected per service via a lease,
+  answers ARP for each LB IP. No BGP: there is no BGP-capable router on the
+  192.168.0.0/16 LAN. Note apiVersion is
+  still v2alpha1 for this CR in Cilium 1.20 (unlike CiliumLoadBalancerIPPool which is v2).
+*/ -}}
+{{- if and .Values.loadBalancer.enabled .Values.loadBalancer.addresses }}
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: default-l2
+  annotations:
+    # Apply AFTER the Cilium operator (default wave 0) so the CRD it registers at runtime
+    # exists; SkipDryRunOnMissingResource stops this CR from deadlocking the whole app's first
+    # sync before the CRD is present.
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/name: cilium
+    app.kubernetes.io/component: loadbalancer
+spec:
+  # Announce over the Talos Proxmox virtio NIC.
+  interfaces:
+    - {{ .Values.loadBalancer.interface | quote }}
+  # Announce Service LoadBalancer ingress IPs (and any externalIPs).
+  loadBalancerIPs: true
+  externalIPs: true
+  # No nodeSelector: any node may win the ARP leader election for a given IP.
+{{- end }}

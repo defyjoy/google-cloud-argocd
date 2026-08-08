@@ -1,0 +1,19 @@
+enabled: true
+
+tailscale-operator:
+  enabled: true
+
+  oauth:
+    clientId: ""
+
+    clientSecret: ""
+
+  hostname: tailscale-operator
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

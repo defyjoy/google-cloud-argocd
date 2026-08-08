@@ -1,0 +1,86 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: keycloak
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: keycloak
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          keycloak: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-keycloak"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/instance: keycloak
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+        argocd.argoproj.io/sync-wave: "3"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: manifests/keycloak
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: keycloak
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "keycloak"
+            pod-security.kubernetes.io/audit: "privileged"
+            pod-security.kubernetes.io/enforce: "privileged"
+            pod-security.kubernetes.io/warn: "privileged"
+      # Ignore differences that are expected
+      ignoreDifferences:
+        # StatefulSet volumeClaimTemplates may change during runtime (for PostgreSQL subchart)
+        - group: apps
+          kind: StatefulSet
+          jsonPointers:
+            - /spec/volumeClaimTemplates
+        # Service annotations may change
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .metadata.annotations
+      revisionHistoryLimit: 3

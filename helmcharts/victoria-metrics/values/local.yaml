@@ -1,0 +1,12 @@
+vmagent:
+  externalLabels:
+    cluster: management
+
+remoteWriteToken:
+  enabled: true
+vmauth:
+  enabled: true
+vmcluster:
+  vminsert:
+    externalExposure:
+      enabled: true

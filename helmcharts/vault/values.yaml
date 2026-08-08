@@ -1,0 +1,237 @@
+enabled: true
+
+vault:
+  httproute:
+    hostname: vault.workquark.org
+    path: /
+    gatewayName: gateway
+    gatewayNamespace: gateway-system
+    gatewayListener: http
+    externalDns:
+      hostname: vault.workquark.org
+      class: cloudflare
+
+  global:
+    enabled: true
+    tlsDisable: true
+
+  injector:
+    enabled: true
+    replicas: 2
+
+    metrics:
+      enabled: true
+
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 50m
+      limits:
+        memory: 512Mi
+        cpu: 100m
+
+    authPath: "auth/kubernetes"
+
+    logLevel: "info"
+    logFormat: "standard"
+
+    securityContext:
+      pod:
+        seccompProfile:
+          type: RuntimeDefault
+      container:
+        seccompProfile:
+          type: RuntimeDefault
+
+  server:
+    enabled: true
+
+    image:
+      repository: "hashicorp/vault"
+      tag: "1.20.4"
+      pullPolicy: IfNotPresent
+
+    updateStrategyType: "RollingUpdate"
+
+    logLevel: "info"
+    logFormat: "json"
+
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 100m
+      limits:
+        memory: 1024Mi
+        cpu: 200m
+
+    ingress:
+      enabled: false
+
+    dataStorage:
+      enabled: true
+      size: 5Gi
+      storageClass: standard-rwo
+      accessMode: ReadWriteOnce
+      mountPath: "/vault/data"
+
+    auditStorage:
+      enabled: false
+      size: 5Gi
+      storageClass: standard-rwo
+      accessMode: ReadWriteOnce
+      mountPath: "/vault/audit"
+
+    serviceAccount:
+      create: true
+      name: ""
+      annotations: {}
+      serviceDiscovery:
+        enabled: true
+
+    readinessProbe:
+      enabled: true
+      port: 8200
+      failureThreshold: 2
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 10
+
+    livenessProbe:
+      enabled: false
+      path: "/v1/sys/health?standbyok=true"
+      port: 8200
+      failureThreshold: 2
+      initialDelaySeconds: 60
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 3
+
+    service:
+      enabled: true
+      active:
+        enabled: true
+      standby:
+        enabled: true
+      publishNotReadyAddresses: true
+
+    ha:
+      enabled: true
+      replicas: 3
+
+      raft:
+        enabled: true
+        setNodeId: true
+
+        config: |
+          ui = true
+
+          listener "tcp" {
+            tls_disable     = 1
+            address         = "[::]:8200"
+            cluster_address = "[::]:8201"
+            
+            # Enable metrics endpoint for Prometheus
+            telemetry {
+              unauthenticated_metrics_access = "true"
+            }
+          }
+
+          storage "raft" {
+            path = "/vault/data"
+
+            # Performance tuning for production
+            # Use auto_join with Kubernetes provider for automatic node discovery
+            retry_join {
+              auto_join = "provider=k8s namespace=\"vault\" label_selector=\"app.kubernetes.io/name=vault,app.kubernetes.io/instance=local-vault\""
+              auto_join_scheme = "http"
+              auto_join_port = 8200
+            }
+          }
+
+          service_registration "kubernetes" {}
+
+          # Telemetry configuration for Prometheus
+          telemetry {
+            prometheus_retention_time = "30s"
+            disable_hostname          = true
+          }
+
+          # Auto-unseal configuration example (uncomment and configure for production)
+          # Using AWS KMS for auto-unseal
+          #seal "awskms" {
+          #  region     = "us-east-1"
+          #  kms_key_id = "your-kms-key-id"
+          #}
+
+          # Using Google Cloud KMS for auto-unseal
+          #seal "gcpckms" {
+          #  project     = "your-gcp-project"
+          #  region      = "global"
+          #  key_ring    = "vault-keyring"
+          #  crypto_key  = "vault-key"
+          #}
+
+          # Using Azure Key Vault for auto-unseal
+          #seal "azurekeyvault" {
+          #  tenant_id      = "your-tenant-id"
+          #  vault_name     = "your-keyvault-name"
+          #  key_name       = "vault-key"
+          #}
+
+      disruptionBudget:
+        enabled: true
+        maxUnavailable: 1
+
+    statefulSet:
+      securityContext:
+        pod:
+          runAsNonRoot: true
+          runAsUser: 100
+          runAsGroup: 1000
+          fsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        container:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 100
+          seccompProfile:
+            type: RuntimeDefault
+
+    affinity: |
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: {{ template "vault.name" . }}
+                app.kubernetes.io/instance: "{{ .Release.Name }}"
+                component: server
+            topologyKey: kubernetes.io/hostname
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    extraEnvironmentVars: {}
+
+    extraSecretEnvironmentVars: []
+
+  ui:
+    enabled: true
+    serviceType: "ClusterIP"
+    externalPort: 8200
+    targetPort: 8200
+
+  serverTelemetry:
+    prometheusOperator: true
+    serviceMonitor:
+      enabled: false
+      selectors:
+        prometheus-scrape: "enabled"
+      interval: 30s
+      scrapeTimeout: 10s

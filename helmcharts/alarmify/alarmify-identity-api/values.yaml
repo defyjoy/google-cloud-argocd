@@ -1,0 +1,63 @@
+image:
+  repository: harbor.workquark.org/alarmify/alarmify-identity-api
+  tag: v0.0.12
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+containerPort: 8080
+servicePort: 80
+
+environment: prod
+
+imagePullSecrets:
+  - name: alarmify-identity-api-registry
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: alarmify/dev/harbor
+  appVarsKeys:
+    - alarmify/dev/postgres/credentials
+  dbHostOverride: ""
+  secretKeyRefs:
+    - secretKey: ZITADEL_ISSUER
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_ISSUER
+    - secretKey: ZITADEL_AUDIENCE
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_AUDIENCE
+    - secretKey: ZITADEL_PROJECT_ID
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_PROJECT_ID
+    - secretKey: ZITADEL_PROJECT_ORG_ID
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_INSTANCE_ORG_ID
+    - secretKey: ZITADEL_ACTION_SIGNING_KEY
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_ACTION_SIGNING_KEY
+    - secretKey: ZITADEL_PROVISIONER_KEY_JSON
+      remoteRef:
+        key: alarmify/management/zitadel
+        property: ZITADEL_PROVISIONER_KEY_JSON
+
+auth:
+  authMode: zitadel
+
+httproute:
+  hostname: identity.home.arpa
+  path: /
+  gatewayName: gateway
+  gatewayNamespace: gateway-system
+  gatewayListener: http

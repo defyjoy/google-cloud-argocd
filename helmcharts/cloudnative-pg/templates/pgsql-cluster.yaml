@@ -1,0 +1,101 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgresql-cluster
+  namespace: cloudnative-pg-system
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+    environment: production
+spec:
+  # Number of PostgreSQL instances
+  instances: 3
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: postgresql-superuser
+
+
+  # PostgreSQL version
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      work_mem: "4MB"
+      min_wal_size: "1GB"
+      max_wal_size: "4GB"
+
+  # Storage configuration
+  storage:
+    size: 2Gi
+    storageClass: standard-rwo  # Adjust based on your storage class
+    resizeInUseVolumes: true
+
+  # Backup configuration
+  # backup:
+  #   barmanObjectStore:
+  #     destinationPath: "s3://cloudnative-pg-backups/example-postgresql"
+  #     s3Credentials:
+  #       accessKeyId:
+  #         name: backup-credentials
+  #         key: ACCESS_KEY_ID
+  #       secretAccessKey:
+  #         name: backup-credentials
+  #         key: SECRET_ACCESS_KEY
+  #     wal:
+  #       retention: "7d"
+  #     data:
+  #       retention: "30d"
+  #     endpointURL: "https://s3.amazonaws.com"  # Adjust based on your S3 endpoint
+  #     endpointCA:
+  #       name: backup-ca
+  #       key: ca.crt
+  #     serverName: "s3.amazonaws.com"  # Adjust based on your S3 endpoint
+
+  # Monitoring (CNPG schema: enablePodMonitor — not `enabled` / `podMonitorEnabled`)
+  monitoring:
+    enablePodMonitor: true
+
+  # Bootstrap method - using initdb to create a new cluster
+  bootstrap:
+    initdb:
+      database: alarmify
+      owner: app_user
+      secret:
+        name: postgresql-credentials
+      dataChecksums: true
+      encoding: "UTF8"
+      localeCType: "C"
+      localeCollate: "C"
+
+  # Resources for PostgreSQL instances
+  # 75% reduction pass (2026-07-11): 25% of prior values (500m/2000m cpu,
+  # 512Mi/2Gi mem), all exact/clean divisions by 4. Applies to the postgres
+  # container and the CNPG-injected bootstrap-controller init container,
+  # which inherits this same .spec.resources value — not separately
+  # configurable.
+  # memory bumped 128Mi->250Mi->384Mi (2026-07-11): the cnpg admission webhook
+  # (vcluster.cnpg.io) requires requests.memory >= shared_buffers, and parses
+  # shared_buffers ("256MB" above) as binary Kubernetes units -> 256Mi ==
+  # 268,435,456 bytes. 128Mi and 250Mi (262,144,000 bytes) both fell short.
+  # 384Mi/768Mi clears that floor with real headroom for wal_buffers,
+  # work_mem, and maintenance_work_mem instead of barely scraping by.
+  resources:
+    requests:
+      cpu: "125m"
+      memory: "384Mi"
+    limits:
+      cpu: "250m"
+      memory: "768Mi"
+
+  # Scheduling (CNPG wraps affinity — use enablePodAntiAffinity, not raw podAntiAffinity)
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: preferred
+    topologyKey: kubernetes.io/hostname

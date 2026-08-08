@@ -1,0 +1,101 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nats
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/instance: nats
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  # NATS migration to dev (alarmify-apps-migration-plan.md, Phase 2) -- fresh start, no data
+  # migration from management's stream (accepted, per that decision). TEMPORARY dual-cluster
+  # state: management's copy stays running (its own generator branch below) until BOTH clients
+  # (alarmify-ingest-api Phase 3, alarmify-event-worker Phase 6) have migrated to dev's local
+  # instance -- only then should the management branch be removed and the `nats: "true"` label
+  # dropped from local-cluster-secret.yaml.
+  - clusters:
+      selector:
+        matchLabels:
+          nats: "true"
+  - clusters:
+      selector:
+        matchExpressions:
+          - key: environment
+            operator: In
+            values:
+              - dev
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-nats"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: nats
+        app.kubernetes.io/instance: nats
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/nats
+        helm:
+          # values/<environment>.yaml holds only differential overrides, none needed yet --
+          # see helmcharts/cert-manager-as.yaml for the same pattern.
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: nats
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "nats"
+            pod-security.kubernetes.io/audit: "privileged"
+            pod-security.kubernetes.io/enforce: "privileged"
+            pod-security.kubernetes.io/warn: "privileged"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      ignoreDifferences:
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates
+        - group: ""
+          kind: PersistentVolumeClaim
+          jqPathExpressions:
+            - .status
+            - .metadata.annotations
+      revisionHistoryLimit: 3

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: gateway-api-crds
+description: Gateway API CRDs (experimental channel) — the cluster-wide API surface every Gateway/HTTPRoute/TCPRoute in this repo is written against
+type: application
+version: 0.1.0
+appVersion: "v1.5.1"
+
+keywords:
+  - gateway-api
+  - crds
+  - networking

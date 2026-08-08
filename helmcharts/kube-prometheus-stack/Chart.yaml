@@ -1,0 +1,16 @@
+apiVersion: v2
+name: kube-prometheus-stack
+description: A Helm chart for kube-prometheus-stack using the official Prometheus Community Helm chart
+type: application
+version: 0.1.0
+appVersion: "v0.68.0"
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: "78.5.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: kube-prometheus-stack.enabled
+
+maintainers:
+  - name: ArgoCD Team
+    email: team@workquark.com

@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rabbitmq-system
+
+# Use the official RabbitMQ Cluster Operator from GitHub
+resources:
+  - https://github.com/rabbitmq/cluster-operator/releases/download/v2.17.0/cluster-operator.yml
+
+# Customize the operator image if needed
+images:
+  - name: quay.io/rabbitmq/cluster-operator
+    newTag: 2.17.0
+
+# Add common labels
+commonLabels:
+  app.kubernetes.io/name: rabbitmq-cluster-operator
+  app.kubernetes.io/instance: rabbitmq-cluster-operator
+  app.kubernetes.io/version: "2.17.0"
+  app.kubernetes.io/managed-by: argocd
+
+# Namespace configuration
+patches:
+  - target:
+      kind: Namespace
+      name: rabbitmq-system
+    patch: |-
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce
+        value: privileged
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1audit
+        value: privileged
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1warn
+        value: privileged
+

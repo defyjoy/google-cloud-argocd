@@ -1,0 +1,195 @@
+enabled: true
+
+corednsKubeSystem:
+  enabled: false
+  lanZone: internal
+  upstream: 8.8.8.8
+  hosts: []
+
+devCluster:
+  enabled: false
+  server: "https://CHANGEME:443"
+  name: dev
+  externalSecrets:
+    secretStore: vault-secretstore
+    refreshInterval: 1h
+    vaultPath: argocd/dev-cluster
+
+argo-cd:
+  global:
+    domain: argocd.workquark.org
+
+  configs:
+    cm:
+      application.resourceTrackingMethod: annotation+label
+      resource.exclusions: |
+        - apiGroups: ["operator.victoriametrics.com"]
+          kinds: ["VMServiceScrape"]
+          clusters: ["*"]
+    params:
+      server.insecure: true
+      timeout.reconciliation: "180s"
+      timeout.reconciliation.jitter: "60s"
+      reposerver.parallelism.limit: "2"
+      controller.repo.server.timeout.seconds: "120"
+    repositories: {}
+
+  redisSecretInit:
+    enabled: false
+
+  server:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 200m
+        memory: 1024Mi
+
+    ingress:
+      enabled: false
+
+    httproute:
+      enabled: true
+      labels: {}
+      annotations: {}
+      parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: gateway
+          namespace: gateway-system
+          sectionName: http
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: gateway
+          namespace: gateway-system
+          sectionName: https
+      hostnames:
+        - argocd.home.arpa
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
+
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+        servicePort: 8083
+      serviceMonitor:
+        enabled: true
+        namespace: argocd
+        additionalLabels:
+          release: "kube-prometheus-stack"
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  controller:
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2048Mi
+      limits:
+        memory: 4096Mi
+
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+        servicePort: 8082
+      serviceMonitor:
+        enabled: true
+        namespace: argocd
+        additionalLabels:
+          release: "kube-prometheus-stack"
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  repoServer:
+    replicas: 3
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 256Mi
+      limits:
+        memory: 1024Mi
+
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+        servicePort: 8084
+      serviceMonitor:
+        enabled: true
+        namespace: argocd
+        additionalLabels:
+          release: "kube-prometheus-stack"
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  applicationSet:
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+        servicePort: 8080
+      serviceMonitor:
+        enabled: false
+        namespace: argocd
+        additionalLabels:
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  notifications:
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+      serviceMonitor:
+        enabled: false
+        namespace: argocd
+        additionalLabels:
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  dex:
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+      serviceMonitor:
+        enabled: false
+        namespace: argocd
+        additionalLabels:
+          prometheus-scrape: "enabled"
+        interval: 30s
+
+  redis:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+    metrics:
+      enabled: true
+      service:
+        annotations: {}
+        labels: {}
+        servicePort: 9121
+      serviceMonitor:
+        enabled: false
+        namespace: argocd
+        additionalLabels:
+          prometheus-scrape: "enabled"
+        interval: 30s

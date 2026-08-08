@@ -1,0 +1,36 @@
+image:
+  repository: harbor.workquark.org/alarmify/alarmify-schedule-api
+  tag: v0.0.3
+  pullPolicy: IfNotPresent
+
+replicas: 1
+
+containerPort: 8080
+servicePort: 80
+
+environment: prod
+debug: "true"
+
+imagePullSecrets:
+  - name: alarmify-schedule-api-registry
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+externalSecrets:
+  secretStore: vault-secretstore
+  registryCredentialKey: alarmify/dev/harbor
+  appVarsKeys:
+    - alarmify/dev/postgres/credentials
+  dbHostOverride: ""
+
+httproute:
+  hostname: schedule.home.arpa
+  path: /
+  gatewayName: gateway
+  gatewayNamespace: gateway-system
+  gatewayListener: http

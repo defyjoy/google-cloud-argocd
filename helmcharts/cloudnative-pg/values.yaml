@@ -1,0 +1,42 @@
+enabled: true
+
+cloudnative-pg:
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 13m
+    limits:
+      memory: 128Mi
+      cpu: 26m
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  serviceAccount:
+    create: true
+
+  rbac:
+    create: true
+
+  crds:
+    create: true
+
+  config:
+    clusterWide: true

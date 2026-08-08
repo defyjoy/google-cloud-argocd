@@ -1,0 +1,34 @@
+{{- /*
+Exposes vminsert on the north-south gateway for dev's cross-cluster VMAgent remote-write.
+Off by default: only makes sense where vmcluster itself runs (management).
+
+Routes to vmauth (vmauth.yaml), never directly to vminsert -- vminsert/vmselect have no
+built-in auth (confirmed against operator v0.73.1 + official VictoriaMetrics docs, 2026-07-16:
+"External clients must access vminsert and vmselect via auth proxy such as vmauth or
+vmgateway"), so vmauth.enabled is a hard prerequisite for external exposure, not an
+independent toggle.
+*/ -}}
+{{- if and .Values.vmcluster.enabled .Values.vmcluster.vminsert.externalExposure.enabled .Values.vmauth.enabled }}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: vminsert-tcproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/component: vminsert-tcproute
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: vminsert
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: vmauth-{{ .Release.Name }}
+          port: {{ .Values.vmauth.port }}
+          weight: 1
+{{- end }}

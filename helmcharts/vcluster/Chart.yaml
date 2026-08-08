@@ -1,0 +1,13 @@
+apiVersion: v2
+name: vcluster
+description: A Helm chart for vcluster - Virtual Kubernetes Clusters
+type: application
+version: 0.1.0
+appVersion: "latest"
+
+dependencies:
+  - name: vcluster
+    version: 0.30.0
+    repository: https://charts.loft.sh
+    condition: vcluster.enabled
+

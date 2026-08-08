@@ -1,0 +1,91 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-alerts-apps
+  namespace: kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    release: kube-prometheus-stack
+    prometheus: kube-prometheus
+    role: alert-rules
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  groups:
+    - name: kubernetes.application.health
+      rules:
+        - alert: CustomKubeDeploymentReplicasMismatch
+          expr: |
+            (
+              kube_deployment_spec_replicas
+              >
+              kube_deployment_status_replicas_available
+            )
+            and (
+              changes(kube_deployment_status_replicas_updated[10m]) == 0
+            )
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Deployment {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.deployment }}` }} has mismatched replicas"
+            description: "Deployment {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.deployment }}` }} has {{ `{{ $value }}` }} available replicas but expected {{ `{{ $labels.replicas }}` }}."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeDeploymentReplicasMismatch.md"
+
+        - alert: CustomKubeDeploymentRolloutStuck
+          expr: kube_deployment_status_condition{condition="Progressing",status="false"} != 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Deployment {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.deployment }}` }} rollout is not progressing"
+            description: "Rollout of deployment {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.deployment }}` }} is not progressing for longer than 5 minutes."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/CustomKubeDeploymentRolloutStuck.md"
+
+        - alert: CustomKubeStatefulSetReplicasMismatch
+          expr: |
+            (
+              kube_statefulset_status_replicas_ready
+              !=
+              kube_statefulset_replicas
+            )
+            and (
+              changes(kube_statefulset_status_replicas_updated[10m]) == 0
+            )
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "StatefulSet {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.statefulset }}` }} has mismatched replicas"
+            description: "StatefulSet {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.statefulset }}` }} has {{ `{{ $value }}` }} ready replicas but expected {{ `{{ $labels.replicas }}` }}."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeStatefulSetReplicasMismatch.md"
+
+    - name: argocd.health
+      rules:
+        - alert: ArgoCDApplicationNotSynced
+          expr: argocd_app_info{health_status!="Healthy"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "ArgoCD application {{ `{{ $labels.name }}` }} is not synced"
+            description: "ArgoCD application {{ `{{ $labels.name }}` }} has been in a non-synced state for more than 5 minutes."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/ArgoCDApplicationNotSynced.md"
+
+        - alert: ArgoCDApplicationSyncFailed
+          expr: argocd_app_info{sync_status!="Synced"} == 1
+          for: 10m
+          labels:
+            severity: critical
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "ArgoCD application {{ `{{ $labels.name }}` }} sync failed"
+            description: "ArgoCD application {{ `{{ $labels.name }}` }} has been failing to sync for more than 10 minutes."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/ArgoCDApplicationSyncFailed.md"

@@ -1,0 +1,5 @@
+# For: docker build -f docs/Dockerfile .
+.git/
+site/
+helmcharts/
+manifests/

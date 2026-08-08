@@ -1,0 +1,21 @@
+apiVersion: v2
+name: victoria-metrics
+description: VictoriaMetrics cluster workload (VMCluster, VMAgent, VMAlert) — requires victoria-metrics-operator
+
+type: application
+version: 0.1.0
+appVersion: "v0.73.1"
+
+keywords:
+  - victoriametrics
+  - metrics
+  - monitoring
+  - observability
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/VictoriaMetrics/operator

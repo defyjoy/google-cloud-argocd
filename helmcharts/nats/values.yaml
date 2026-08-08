@@ -1,0 +1,158 @@
+enabled: true
+
+nats:
+  enabled: true
+
+  authUsers:
+    enabled: true
+    insecureAllowAnonymous: false
+    defaultSubjectPattern: ">"
+    existingSecret: ""
+    secret:
+      create: true
+      includeKey: auth-users.inc
+    clients:
+      - user: alarmify-ingest-api
+        mode: publish-only
+        password: changeme-alarmify-ingest-api
+        publishSubjects:
+          - "alarmify.events.raw"
+          - "alarmify.events.raw.*"
+        subscribeAllowSubjects:
+          - "_INBOX.>"
+      - user: alarmify-event-processor
+        mode: publish-only
+        password: changeme-alarmify-event-processor
+        publishSubjects:
+          - "$JS.API.CONSUMER.INFO.ALARMIFY_EVENTS_RAW.>"
+          - "$JS.API.CONSUMER.MSG.NEXT.ALARMIFY_EVENTS_RAW.>"
+          - "$JS.API.CONSUMER.CREATE.ALARMIFY_EVENTS_RAW.>"
+          - "$JS.ACK.ALARMIFY_EVENTS_RAW.>"
+        publishDenySubjects:
+          - "$SYS.>"
+        subscribeAllowSubjects:
+          - "_INBOX.>"
+        subscribeDenySubjects:
+          - "$JS.API.>"
+          - "$SYS.>"
+      - user: ops
+        mode: full
+        password: changeme-ops
+
+  jetstreamBootstrap:
+    enabled: false
+    natsUser: ops
+    natsPassword: changeme-ops
+    streams: []
+
+  image:
+    repository: nats
+    tag: "2.10.7-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 4222
+
+  config:
+    jetstream:
+      enabled: true
+      fileStore:
+        pvc:
+          enabled: true
+    merge:
+      $tplYaml: |
+        {{- if .Values.authUsers.enabled }}
+        50$include: includes/users.inc
+        {{- else }}
+        {}
+        {{- end }}
+
+  promExporter:
+    enabled: true
+    port: 7777
+    podMonitor:
+      enabled: false
+
+  podTemplate:
+    patch:
+      - $tplYamlSpread: |
+          {{- if .Values.authUsers.enabled }}
+          - op: add
+            path: /spec/volumes/-
+            value:
+              name: auth-users-include
+              secret:
+                secretName: {{ if .Values.authUsers.existingSecret }}{{ .Values.authUsers.existingSecret | quote }}{{ else }}{{ printf "%s-auth-users" (include "nats.fullname" .) | quote }}{{ end }}
+                items:
+                  - key: {{ .Values.authUsers.secret.includeKey | default "auth-users.inc" | quote }}
+                    path: users.inc
+          - op: add
+            path: /spec/containers/0/volumeMounts/-
+            value:
+              name: auth-users-include
+              mountPath: /etc/nats-config/includes
+              readOnly: true
+          {{- end }}
+
+  reloader:
+    patch:
+      - $tplYamlSpread: |
+          {{- if .Values.authUsers.enabled }}
+          - op: add
+            path: /volumeMounts/-
+            value:
+              name: auth-users-include
+              mountPath: /etc/nats-config/includes
+              readOnly: true
+          {{- end }}
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  serviceAccount:
+    create: true
+    name: nats
+
+  rbac:
+    create: true
+
+  natsBox:
+    enabled: true
+    contexts:
+      default:
+        merge:
+          user: ops
+          password: changeme-ops
+    homePvc:
+      enabled: true
+      size: 1Gi
+      storageClassName: ""
+    container:
+      patch:
+        - op: add
+          path: /volumeMounts/-
+          value:
+            name: nats-box-home
+            mountPath: /var/lib/nats-box
+    podTemplate:
+      patch:
+        - op: add
+          path: /spec/volumes/-
+          value:
+            name: nats-box-home
+            persistentVolumeClaim:
+              claimName:
+                $tplYaml: >
+                  {{ printf "%s-natsbox-home" (include "nats.fullname" $) | quote }}

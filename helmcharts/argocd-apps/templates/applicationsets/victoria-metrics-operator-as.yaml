@@ -1,0 +1,94 @@
+# VictoriaMetrics Operator ApplicationSet
+# Chart: helmcharts/victoria-metrics-operator (wraps https://victoriametrics.github.io/helm-charts victoria-metrics-operator)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: victoria-metrics-operator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: victoria-metrics-operator
+    app.kubernetes.io/instance: victoria-metrics-operator
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    argocd.argoproj.io/sync-wave: "-16"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-victoria-metrics-operator"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: victoria-metrics-operator
+        app.kubernetes.io/instance: victoria-metrics-operator
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/victoria-metrics-operator
+        helm:
+          # values.yaml holds shared defaults; values/<environment>.yaml holds only the
+          # differential overrides for that environment, picked automatically from the target
+          # cluster's `environment` label. Same pattern as helmcharts/cilium.
+          # ignoreMissingValueFiles lets a cluster sync fine even if no override exists yet
+          # (true for this chart today -- lightweight CRDs+controller, same on every cluster).
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: victoria-metrics-operator-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "victoria-metrics-operator-system"
+            pod-security.kubernetes.io/audit: "restricted"
+            pod-security.kubernetes.io/enforce: "restricted"
+            pod-security.kubernetes.io/warn: "restricted"
+      revisionHistoryLimit: 3
+      ignoreDifferences:
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle

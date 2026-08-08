@@ -1,0 +1,122 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: example-postgresql
+  namespace: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+    environment: production
+spec:
+  # Number of PostgreSQL instances
+  instances: 3
+
+  # PostgreSQL version
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      work_mem: "4MB"
+      min_wal_size: "1GB"
+      max_wal_size: "4GB"
+
+  # Storage configuration
+  storage:
+    size: 20Gi
+    storageClass: standard-rwo  # Adjust based on your storage class
+    resizeInUseVolumes: true
+
+  # Backup configuration
+  backup:
+    barmanObjectStore:
+      destinationPath: "s3://cloudnative-pg-backups/example-postgresql"
+      s3Credentials:
+        accessKeyId:
+          name: backup-credentials
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: backup-credentials
+          key: SECRET_ACCESS_KEY
+      wal:
+        retention: "7d"
+      data:
+        retention: "30d"
+      endpointURL: "https://s3.amazonaws.com"  # Adjust based on your S3 endpoint
+      endpointCA:
+        name: backup-ca
+        key: ca.crt
+      serverName: "s3.amazonaws.com"  # Adjust based on your S3 endpoint
+
+  # Monitoring
+  monitoring:
+    enabled: true
+    podMonitorEnabled: true
+
+  # Bootstrap method - using initdb to create a new cluster
+  bootstrap:
+    initdb:
+      database: example_db
+      owner: app_user
+      secret:
+        name: postgresql-credentials
+      dataChecksums: true
+      encoding: "UTF8"
+      localeCType: "C"
+      localeCollate: "C"
+      options:
+        - "--auth-host=scram-sha-256"
+        - "--auth-local=scram-sha-256"
+
+  # Resources for PostgreSQL instances
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+
+  # Node affinity (optional)
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                postgresql.cnpg.io/cluster: example-postgresql
+            topologyKey: kubernetes.io/hostname
+
+---
+# Secret for PostgreSQL credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgresql-credentials
+  namespace: postgresql
+type: kubernetes.io/basic-auth
+stringData:
+  username: app_user
+  password: changeme-in-production  # Change this in production!
+  dbname: example_db
+
+---
+# Secret for S3 backup credentials (example)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-credentials
+  namespace: postgresql
+type: Opaque
+stringData:
+  ACCESS_KEY_ID: your-access-key-id
+  SECRET_ACCESS_KEY: your-secret-access-key
+
+

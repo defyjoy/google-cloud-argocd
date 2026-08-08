@@ -1,0 +1,47 @@
+{{- if .Values.vmcluster.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMCluster
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: cluster
+    app.kubernetes.io/managed-by: Helm
+spec:
+  useStrictSecurity: true
+  retentionPeriod: {{ .Values.retentionPeriod | quote }}
+  replicationFactor: {{ .Values.vmcluster.replicationFactor }}
+
+  vmstorage:
+    replicaCount: {{ .Values.vmcluster.vmstorage.replicaCount }}
+    storageDataPath: "/vm-data"
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: {{ .Values.vmcluster.vmstorage.storageClassName }}
+          resources:
+            requests:
+              storage: {{ .Values.vmcluster.vmstorage.storage }}
+    resources:
+      {{- toYaml .Values.vmcluster.vmstorage.resources | nindent 6 }}
+
+  vminsert:
+    replicaCount: {{ .Values.vmcluster.vminsert.replicaCount }}
+    resources:
+      {{- toYaml .Values.vmcluster.vminsert.resources | nindent 6 }}
+
+  vmselect:
+    replicaCount: {{ .Values.vmcluster.vmselect.replicaCount }}
+    cacheMountPath: "/select-cache"
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: {{ .Values.vmcluster.vmselect.storageClassName }}
+          resources:
+            requests:
+              storage: {{ .Values.vmcluster.vmselect.cacheStorage }}
+    resources:
+      {{- toYaml .Values.vmcluster.vmselect.resources | nindent 6 }}
+{{- end }}

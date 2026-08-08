@@ -1,0 +1,148 @@
+backstage:
+  enabled: true
+
+  ingress:
+    enabled: false
+    className: "nginx"
+    host: "backstage.workquark.org"
+    tls:
+      enabled: false
+
+  backstage:
+    replicas: 1
+    revisionHistoryLimit: 3
+
+    image:
+      registry: ghcr.io
+      repository: backstage/backstage
+      tag: latest
+      pullPolicy: IfNotPresent
+      pullSecrets: []
+
+    pdb:
+      create: false
+      minAvailable: 1
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      runAsUser: 1000
+
+    extraEnvVars:
+      - name: NODE_ENV
+        value: production
+      - name: LOG_LEVEL
+        value: info
+
+    extraVolumes: []
+    extraVolumeMounts: []
+
+    appConfig:
+      app:
+        title: Backstage
+        baseUrl: https://backstage.workquark.org
+
+      organization:
+        name: My Company
+
+      backend:
+        baseUrl: https://backstage.workquark.org
+        listen:
+          port: 7007
+        csp:
+          connect-src: ["'self'", "http:", "https:"]
+        cors:
+          origin: https://backstage.workquark.org
+          methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+          credentials: true
+        database:
+          client: better-sqlite3
+          connection: ":memory:"
+
+      integrations:
+        github:
+          - host: github.com
+
+      proxy:
+        "/test":
+          target: "https://example.com"
+          changeOrigin: true
+
+      techdocs:
+        builder: "local"
+        generator:
+          runIn: "local"
+        publisher:
+          type: "local"
+
+      auth:
+        environment: development
+        providers: {}
+
+      scaffolder:
+
+      kubernetes:
+        serviceLocatorMethod:
+          type: "multiTenant"
+        clusterLocatorMethods:
+          - type: "config"
+            clusters: []
+
+  postgresql:
+    enabled: false
+    auth:
+      username: backstage
+      password: backstage
+      database: backstage
+    architecture: standalone
+
+  serviceAccount:
+    create: true
+    annotations: {}
+    automountServiceAccountToken: true
+    name: ""
+
+  metrics:
+    serviceMonitor:
+      enabled: false
+      interval: 30s
+      path: /metrics
+      labels:
+        prometheus-scrape: "enabled"
+
+  networkPolicy:
+    enabled: false
+
+  commonLabels:
+    app.kubernetes.io/name: backstage
+    app.kubernetes.io/instance: backstage
+    app.kubernetes.io/managed-by: argocd
+
+  commonAnnotations: {}

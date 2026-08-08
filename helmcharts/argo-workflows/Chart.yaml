@@ -1,0 +1,26 @@
+apiVersion: v2
+name: argo-workflows
+description: A Helm chart for Argo Workflows - Container-native workflow engine for Kubernetes
+
+type: application
+version: 0.2.0
+appVersion: "4.0.5"
+
+dependencies:
+  - name: argo-workflows
+    version: 1.0.13
+    repository: https://argoproj.github.io/argo-helm
+    condition: argo-workflows.enabled
+
+keywords:
+  - argo-workflows
+  - workflows
+  - ci-cd
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/argoproj/argo-workflows

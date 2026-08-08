@@ -1,0 +1,103 @@
+domain: workquark.org
+
+airflow:
+  enabled: true
+
+  executor: "CeleryExecutor"
+
+  webserver:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  ingress:
+    enabled: false
+
+    apiServer:
+      enabled: false
+
+    web:
+      enabled: false
+
+  scheduler:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  workers:
+    replicas: 2
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+  postgresql:
+    enabled: true
+    auth:
+      enablePostgresUser: true
+      postgresPassword: postgres
+      username: airflow
+      password: airflow
+      database: airflow
+    primary:
+      persistence:
+        enabled: true
+        storageClassName: standard-rwo
+        size: 10Gi
+    persistence:
+      enabled: true
+      storageClassName: standard-rwo
+      size: 10Gi
+
+  redis:
+    enabled: true
+
+  dags:
+    gitSync:
+      enabled: false
+
+  logs:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClassName: standard-rwo
+
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClassName: standard-rwo
+
+  securityContext: {}
+
+  securityContexts:
+    pod:
+      runAsUser: 50000
+      fsGroup: 50000
+      runAsGroup: 0
+    containers: {}
+
+  serviceAccount:
+    create: true
+
+  config:
+    core:
+      executor: "CeleryExecutor"
+      load_examples: "False"
+      dags_are_paused_at_creation: "True"
+    webserver:
+      expose_config: "True"
+    api:
+      auth_backends: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"

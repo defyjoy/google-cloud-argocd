@@ -1,0 +1,26 @@
+# Custom Dictionary Words
+alertmanager
+alertname
+clickhouse
+cloudflared
+crds
+defyjoy
+helmcharts
+kubelet
+kyverno
+localpv
+mayastor
+nworker
+openebs
+rabbitmq
+runbook
+scaffolder
+secretstore
+statefulset
+strimzi
+techdocs
+vcluster
+workquark
+yugabyte
+cloudnative
+alarmifyui

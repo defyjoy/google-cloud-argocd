@@ -1,0 +1,16 @@
+apiVersion: v2
+name: tempo
+description: >-
+  Grafana Tempo (single-binary mode) -- the tracing backend behind Grafana's Tempo datasource.
+  ClickStack/HyperDX (helmcharts/clickstack) cannot serve this role: it exposes only a
+  proprietary API, no Jaeger- or Tempo-compatible query endpoint (confirmed 2026-07-19).
+  Official chart: https://github.com/grafana-community/helm-charts/tree/main/charts/tempo
+type: application
+version: 0.1.0
+appVersion: "2.28.0"
+
+dependencies:
+  - name: tempo
+    version: "1.23.3"
+    repository: https://grafana-community.github.io/helm-charts
+    condition: enabled

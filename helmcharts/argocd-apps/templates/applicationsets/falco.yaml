@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: falco
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: falco
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          falco: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-falco"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: falco
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/falco
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: falco
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          labels:
+            name: "falco"
+        retry:
+          backoff:
+            duration: 5s
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

@@ -1,0 +1,8 @@
+cloudflareApiToken:
+  vaultPath: alarmify/dev/cloudflared/token
+
+external-dns:
+  policy: sync
+
+  txtOwnerId: external-dns-dev
+  txtPrefix: external-dns-dev

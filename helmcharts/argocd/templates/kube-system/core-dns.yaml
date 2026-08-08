@@ -1,0 +1,21 @@
+{{- if .Values.corednsKubeSystem.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: coredns-lan
+  namespace: kube-system
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.3.11
+  selector:
+    k8s-app: kube-dns
+  ports:
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+{{- end }}

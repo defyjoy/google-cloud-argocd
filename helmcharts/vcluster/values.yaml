@@ -1,0 +1,62 @@
+vcluster:
+  sync:
+    toHost:
+      services:
+        enabled: true
+      endpoints:
+        enabled: true
+      persistentVolumeClaims:
+        enabled: true
+      configMaps:
+        enabled: true
+        all: false
+      secrets:
+        enabled: true
+        all: false
+      pods:
+        enabled: true
+        rewriteHosts:
+          enabled: true
+      ingresses:
+        enabled: false
+      priorityClasses:
+        enabled: false
+      networkPolicies:
+        enabled: false
+      storageClasses:
+        enabled: false
+      persistentVolumes:
+        enabled: false
+
+    fromHost:
+      events:
+        enabled: true
+      configMaps:
+        enabled: false
+      csiDrivers:
+        enabled: auto
+      csiNodes:
+        enabled: auto
+      storageClasses:
+        enabled: auto
+      ingressClasses:
+        enabled: false
+      priorityClasses:
+        enabled: false
+      nodes:
+        enabled: false
+        selector:
+          all: false
+      secrets:
+        enabled: false
+
+  controlPlane:
+    statefulSet:
+      persistence:
+        volumeClaim:
+          enabled: true
+          size: 20Gi
+          storageClass: standard-rwo
+          retentionPolicy: Retain
+          accessModes:
+            - ReadWriteOnce

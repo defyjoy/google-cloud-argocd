@@ -1,0 +1,27 @@
+apiVersion: v2
+name: strimzi-kafka-operator
+description: A Helm chart for Strimzi Kafka Operator - Kubernetes operator for Apache Kafka
+
+type: application
+version: 0.1.0
+appVersion: "0.40.0"
+
+dependencies:
+  - name: strimzi-kafka-operator
+    version: 0.40.0
+    repository: https://strimzi.io/charts
+    condition: strimzi-kafka-operator.enabled
+
+keywords:
+  - strimzi
+  - kafka
+  - operator
+  - messaging
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/strimzi/strimzi-kafka-operator

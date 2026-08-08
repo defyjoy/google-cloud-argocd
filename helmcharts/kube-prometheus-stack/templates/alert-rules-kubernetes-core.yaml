@@ -1,0 +1,131 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernetes-alerts-core
+  namespace: kube-prometheus-stack
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: alert-rules
+    app.kubernetes.io/part-of: kube-prometheus-stack
+    app.kubernetes.io/managed-by: Helm
+    release: kube-prometheus-stack
+    prometheus: kube-prometheus
+    role: alert-rules
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  groups:
+    - name: kubernetes.cluster.health
+      rules:
+        - alert: CustomKubeNodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Kubernetes node {{ `{{ $labels.node }}` }} is not ready"
+            description: "Node {{ `{{ $labels.node }}` }} has been unready for more than 5 minutes."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeNodeNotReady.md"
+
+        - alert: CustomKubeNodeUnreachable
+          expr: kube_node_spec_unschedulable > 0
+          for: 1m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Kubernetes node {{ `{{ $labels.node }}` }} is unreachable"
+            description: "Node {{ `{{ $labels.node }}` }} is unreachable and some workloads may be rescheduled."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeNodeUnreachable.md"
+
+    - name: kubernetes.pod.health
+      rules:
+        - alert: CustomKubePodCrashLooping
+          expr: |
+            (
+              max_over_time(
+                kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]
+              ) >= 1
+            )
+            {{- include "kube-prometheus-stack.podOwnerFilterJoin" . | nindent 12 }}
+          for: 5m
+          labels:
+            severity: critical
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} is crash looping"
+            description: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} is restarting {{ `{{ $value }}` }} times per 15 minutes."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubePodCrashLooping.md"
+
+        - alert: CustomKubeContainerWaiting
+          expr: |
+            (
+              kube_pod_container_status_waiting_reason{reason!="CrashLoopBackOff"} > 0
+            )
+            {{- include "kube-prometheus-stack.podOwnerFilterJoin" . | nindent 12 }}
+          for: 1h
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Pod container waiting longer than 1 hour"
+            description: "pod/{{ `{{ $labels.pod }}` }} in namespace {{ `{{ $labels.namespace }}` }} on container {{ `{{ $labels.container }}` }} has been in waiting state for longer than 1 hour (reason: {{ `{{ $labels.reason }}` }})."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeContainerWaiting.md"
+
+        - alert: CustomKubePodNotReady
+          expr: |
+            sum by (namespace, pod, cluster) (
+              max by (namespace, pod, cluster) (
+                kube_pod_status_phase{phase=~"Pending|Unknown|Failed"} > 0
+              )
+              {{- include "kube-prometheus-stack.podOwnerFilterJoin" . | nindent 14 }}
+            ) > 0
+          for: 1m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} is not ready"
+            description: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} has been in a non-ready state for more than 1 minute."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubePodNotReady.md"
+
+    - name: kubernetes.resource.usage
+      rules:
+        - alert: KubeMemoryPressure
+          expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+          for: 2m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Kubernetes node {{ `{{ $labels.node }}` }} is under memory pressure"
+            description: "Node {{ `{{ $labels.node }}` }} is under memory pressure and may be evicting pods."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeMemoryPressure.md"
+
+        - alert: KubeDiskPressure
+          expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+          for: 2m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Kubernetes node {{ `{{ $labels.node }}` }} is under disk pressure"
+            description: "Node {{ `{{ $labels.node }}` }} is under disk pressure and may be evicting pods."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeDiskPressure.md"
+
+        - alert: KubeCPUThrottling
+          expr: |
+            (
+              rate(container_cpu_cfs_throttled_seconds_total{container!=""}[5m]) > 0.1
+            )
+            {{- include "kube-prometheus-stack.podOwnerFilterJoin" . | nindent 12 }}
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ include "kube-prometheus-stack.alertServiceLabel" . }}"
+          annotations:
+            summary: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} is CPU throttled"
+            description: "Pod {{ `{{ $labels.namespace }}` }}/{{ `{{ $labels.pod }}` }} is being CPU throttled at {{ `{{ $value }}` }} seconds per second."
+            runbook_url: "https://github.com/workquark/ArgoCD/blob/main/docs/runbooks/KubeCPUThrottling.md"

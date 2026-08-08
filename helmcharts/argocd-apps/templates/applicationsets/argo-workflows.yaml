@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argo-workflows
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          argo-workflows: "true"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-argo-workflows"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: argo-workflows
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/argo-workflows
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: argo-workflows
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        managedNamespaceMetadata:
+          labels:
+            name: "argo-workflows"
+        retry:
+          backoff:
+            duration: 5s
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      revisionHistoryLimit: 3

@@ -1,0 +1,217 @@
+version: '3'
+
+# HashiCorp Vault helper tasks (init JSON under {{.BOOTSTRAP_STATE_DIR}}).
+
+tasks:
+  hashicorp-vault:
+    desc: "Manage HashiCorp Vault StatefulSet: login, init, unseal, and display tokens"
+    summary: |
+      Complete HashiCorp Vault management workflow:
+      1. Check cluster connectivity
+      2. Login to Vault StatefulSet pods
+      3. Initialize HashiCorp Vault (if not already initialized)
+      4. Unseal all Vault pods
+      5. Display root token and unseal keys
+
+      Parameters:
+      - VAULT_STATEFULSET_NAME: Name of the Vault StatefulSet (default: vault)
+      - VAULT_CLUSTER_PREFIX: Cluster prefix for pod names (default: local)
+      - VAULT_NAMESPACE: Namespace where Vault is deployed (default: vault)
+
+      Usage:
+      task hashicorp-vault VAULT_STATEFULSET_NAME=vault VAULT_CLUSTER_PREFIX=local
+      task hashicorp-vault VAULT_STATEFULSET_NAME=my-vault VAULT_CLUSTER_PREFIX=prod
+
+      Prerequisites:
+      - kubectl access to the cluster
+      - HashiCorp Vault StatefulSet must be running
+    cmds:
+      - cmd: echo "🔐 Starting HashiCorp Vault management workflow..."
+      - cmd: echo "📋 Configuration:"
+      - cmd: 'echo "   StatefulSet: {{.VAULT_STATEFULSET_NAME}}"'
+      - cmd: 'echo "   Cluster Prefix: {{.VAULT_CLUSTER_PREFIX}}"'
+      - cmd: 'echo "   Namespace: {{.VAULT_NAMESPACE}}"'
+      - cmd: 'echo "   Pods: {{.VAULT_CLUSTER_PREFIX}}-vault-0 to {{.VAULT_CLUSTER_PREFIX}}-vault-$(({{.VAULT_REPLICAS}} - 1))"'
+      - task: hashicorp-vault-connectivity
+      - task: hashicorp-vault-check
+      - task: hashicorp-vault-init
+      - task: hashicorp-vault-unseal
+      - task: hashicorp-vault-status
+
+  hashicorp-vault-connectivity:
+    desc: "Check cluster connectivity before Vault operations"
+    summary: |
+      Verifies cluster connectivity and kubectl access before proceeding with Vault operations.
+
+      Checks:
+      - kubectl command availability
+      - Cluster API server connectivity
+      - Current context validation
+      - Basic cluster resource access
+
+      This task must pass before any Vault operations can proceed.
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-connectivity.sh"
+
+  hashicorp-vault-check:
+    desc: "Check HashiCorp Vault StatefulSet status"
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_STATEFULSET_NAME: "{{.VAULT_STATEFULSET_NAME}}"
+      VAULT_REPLICAS: "{{.VAULT_REPLICAS}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-check.sh"
+
+  hashicorp-vault-init:
+    desc: "Initialize HashiCorp Vault (if not already initialized)"
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-init.sh"
+
+  hashicorp-vault-init-template:
+    desc: "Scaffold hashicorp-vault-init.json from the example template"
+    summary: |
+      Creates the gitignored hashicorp-vault-init.json (under {{.BOOTSTRAP_STATE_DIR}}/)
+      from the committed hashicorp-vault-init.example.json template.
+
+      Use this when Vault was already initialized on a previous run — the unseal
+      keys and root token are only ever emitted once, at `vault operator init`, so
+      'task hashicorp-vault-init' will NOT re-create the file for an already-initialized
+      Vault. Scaffold the file with this task, paste in the keys you saved, then run
+      'task hashicorp-vault-unseal'.
+
+      The file is gitignored and will not be committed. Existing files with real keys
+      are never overwritten.
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-init-template.sh"
+
+  hashicorp-vault-unseal:
+    desc: "Unseal all HashiCorp Vault pods"
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+      VAULT_REPLICAS: "{{.VAULT_REPLICAS}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-unseal.sh"
+
+  hashicorp-vault-status:
+    desc: "Display HashiCorp Vault status, tokens, and keys"
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+      VAULT_REPLICAS: "{{.VAULT_REPLICAS}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-status.sh"
+
+  hashicorp-vault-cleanup:
+    desc: "Clean up HashiCorp Vault initialization file"
+    summary: |
+      Removes the hashicorp-vault-init.json file containing sensitive credentials.
+      Use this after you have securely stored the root token and unseal keys.
+
+      ⚠️  WARNING: This will permanently delete the initialization file!
+    prompt: "⚠️  This will permanently delete the vault initialization file. Continue?"
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-cleanup.sh"
+
+  hashicorp-vault-login:
+    desc: "Login to HashiCorp Vault pod for manual operations"
+    summary: |
+      Opens an interactive shell in the specified Vault pod.
+      Defaults to {{.VAULT_CLUSTER_PREFIX}}-vault-0 if no pod is specified.
+
+      Usage: task hashicorp-vault-login -- <pod-name>
+      Example: task hashicorp-vault-login -- {{.VAULT_CLUSTER_PREFIX}}-vault-1
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-login.sh" {{.CLI_ARGS}}
+
+  hashicorp-vault-health:
+    desc: "Check health status of all HashiCorp Vault pods"
+    env:
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+      VAULT_REPLICAS: "{{.VAULT_REPLICAS}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-health.sh"
+
+  provision-vault-secrets:
+    desc: "Seed bootstrap secrets into Vault from inside the Vault pods (cloudflared tunnel credentials + Cloudflare API token)"
+    summary: |
+      Writes the secrets the cluster needs before it has a working ingress path.
+
+      Chicken-and-egg this solves: cloudflared cannot serve vault.workquark.org until it
+      has its tunnel credentials, and those credentials come from Vault — so the public
+      Vault endpoint is unreachable at exactly the moment it is needed. This task talks to
+      Vault through `kubectl exec` (API server path, no tunnel/Gateway/HTTPRoute involved)
+      and runs the `vault` CLI on the active Raft node.
+
+      The Vault pods have no access to ~/.cloudflared, so the cert and credentials files
+      are streamed in over the exec stdin as one JSON object. Nothing is written to the pod
+      filesystem, and no secret is passed as a command argument.
+
+      Seeds:
+        {{.VAULT_KV_MOUNT}}/alarmify/<env>/cloudflared/credentials  (fields: cert, credentials)  -> cloudflared
+        {{.VAULT_KV_MOUNT}}/alarmify/<env>/cloudflared/token        (field: token)               -> external-dns
+
+      The Cloudflare API token is read from .env in the repo root (gitignored; copy
+      .env.example). Before writing, the token is checked by listing the zone external-dns
+      manages — external-dns fails quietly on a bad token, leaving DNS stale while every
+      pod stays Running. The check uses /zones rather than /user/tokens/verify because the
+      latter rejects valid ACCOUNT-owned tokens.
+
+      Parameters:
+      - VAULT_ENV: Vault env segment = Argo CD cluster name — local (management) or dev.
+                   Both live in the management Vault; dev's ClusterSecretStore points here.
+      - CLOUDFLARED_TUNNEL_ID: defaults to the tunnel for VAULT_ENV. The credentials file is
+                   then ~/.cloudflared/<tunnel-id>.json.
+      - CLOUDFLARED_CERT_FILE / CLOUDFLARED_CREDENTIALS_FILE: override the file paths.
+      - CLOUDFLARE_API_TOKEN: overrides the value in .env (for CI).
+      - CLOUDFLARE_TOKEN_VERIFY=false: skip the api.cloudflare.com verification call.
+      - ENV_FILE: override the dotenv path (default: repo root .env).
+      - VAULT_TOKEN: root token; falls back to .root_token in {{.BOOTSTRAP_STATE_DIR}}/hashicorp-vault-init.json.
+
+      Usage:
+      task provision-vault-secrets
+      task provision-vault-secrets VAULT_ENV=dev
+
+      Prerequisites:
+      - Vault initialized and unsealed (task hashicorp-vault-init, task hashicorp-vault-unseal)
+      - jq, the tunnel credentials present under ~/.cloudflared, and CLOUDFLARE_API_TOKEN in .env
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    env:
+      REPO_ROOT: "{{.REPO_ROOT}}"
+      VAULT_NAMESPACE: "{{.VAULT_NAMESPACE}}"
+      VAULT_CLUSTER_PREFIX: "{{.VAULT_CLUSTER_PREFIX}}"
+      VAULT_REPLICAS: "{{.VAULT_REPLICAS}}"
+      VAULT_KV_MOUNT: "{{.VAULT_KV_MOUNT}}"
+      VAULT_ENV: "{{.VAULT_ENV}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/provision-vault-secrets.sh"
+
+  hashicorp-vault-create-secret:
+    desc: "Create vault-token secret for External Secrets Operator"
+    summary: |
+      Creates a Kubernetes secret containing the Vault token for External Secrets Operator.
+
+      This task:
+      1. Checks if vault-token secret already exists
+      2. Retrieves the root token from hashicorp-vault-init.json
+      3. Creates or updates the vault-token secret
+      4. Verifies the secret was created successfully
+
+      Prerequisites:
+      - Vault must be initialized (run hashicorp-vault-init first)
+      - hashicorp-vault-init.json must exist under {{.BOOTSTRAP_STATE_DIR}}/
+    dir: "{{.BOOTSTRAP_STATE_DIR}}"
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-create-secret.sh"

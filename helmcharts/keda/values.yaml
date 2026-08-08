@@ -1,0 +1,183 @@
+keda:
+  enabled: true
+
+  crds:
+    install: true
+
+  watchNamespace: ""
+
+  operator:
+    name: keda-operator
+    replicaCount: 1
+
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+
+  metricsServer:
+    replicaCount: 1
+
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+
+    useHostNetwork: false
+    dnsPolicy: ClusterFirst
+
+  webhooks:
+    enabled: true
+    name: keda-admission-webhooks
+    replicaCount: 1
+
+    resources:
+      limits:
+        cpu: 200m
+        memory: 200Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+
+    failurePolicy: Ignore
+
+    useHostNetwork: false
+
+  securityContext:
+    operator:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      seccompProfile:
+        type: RuntimeDefault
+    metricServer:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      seccompProfile:
+        type: RuntimeDefault
+    webhooks:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      seccompProfile:
+        type: RuntimeDefault
+
+  podSecurityContext:
+    operator:
+      runAsNonRoot: true
+    metricServer:
+      runAsNonRoot: true
+    webhooks:
+      runAsNonRoot: true
+
+  serviceAccount:
+    operator:
+      create: true
+      name: keda-operator
+      automountServiceAccountToken: true
+      annotations: {}
+    metricServer:
+      create: true
+      name: keda-metrics-server
+      automountServiceAccountToken: true
+      annotations: {}
+    webhooks:
+      create: true
+      name: keda-webhook
+      automountServiceAccountToken: true
+      annotations: {}
+
+  rbac:
+    create: true
+    aggregateToDefaultRoles: false
+
+  logging:
+    operator:
+      level: info
+      format: console
+    metricServer:
+      level: "0"
+    webhooks:
+      level: info
+      format: console
+
+  prometheus:
+    metricServer:
+      enabled: true
+      port: 9022
+      portName: metrics
+      path: /metrics
+      serviceMonitor:
+        enabled: false
+        interval: 30s
+        scrapeTimeout: 10s
+        additionalLabels:
+          prometheus-scrape: "enabled"
+    operator:
+      enabled: true
+      port: 8080
+      portName: metrics
+      path: /metrics
+      serviceMonitor:
+        enabled: false
+        interval: 30s
+        scrapeTimeout: 10s
+        additionalLabels:
+          prometheus-scrape: "enabled"
+    webhooks:
+      enabled: true
+      port: 8080
+      portName: metrics
+      path: /metrics
+      serviceMonitor:
+        enabled: false
+        interval: 30s
+        scrapeTimeout: 10s
+        additionalLabels:
+          prometheus-scrape: "enabled"
+
+  podDisruptionBudget:
+    operator: {}
+    metricServer: {}
+    webhooks: {}
+
+  additionalLabels: {}
+  additionalAnnotations: {}
+
+  podAnnotations:
+    keda: {}
+    metricsAdapter: {}
+    webhooks: {}
+
+  podLabels:
+    keda: {}
+    metricsAdapter: {}
+    webhooks: {}
+
+  priorityClassName: ""
+
+  env: []
+
+  volumes:
+    keda:
+      extraVolumes: []
+      extraVolumeMounts: []
+    metricsApiServer:
+      extraVolumes: []
+      extraVolumeMounts: []
+    webhooks:
+      extraVolumes: []
+      extraVolumeMounts: []

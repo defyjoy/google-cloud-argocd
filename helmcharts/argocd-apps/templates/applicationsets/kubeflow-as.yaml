@@ -1,0 +1,104 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: kubeflow
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kubeflow
+    app.kubernetes.io/instance: kubeflow
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  generators:
+    # Cluster generator - automatically discovers clusters registered in ArgoCD
+    - clusters:
+        selector:
+          matchLabels:
+            # Deploy to clusters with this label
+            kubeflow: "true"
+        values:
+          # Default values for all clusters
+          environment: "production"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-kubeflow"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: kubeflow
+        app.kubernetes.io/instance: kubeflow
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/managed: "true"
+        argocd.argoproj.io/sync-wave: "3"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        # Use kustomization manifests for Kubeflow
+        path: manifests/kubeflow
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: kubeflow
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "kubeflow"
+            app.kubernetes.io/name: "kubeflow"
+            pod-security.kubernetes.io/audit: "privileged"
+            pod-security.kubernetes.io/enforce: "privileged"
+            pod-security.kubernetes.io/warn: "privileged"
+        retry:
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+          limit: 5
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+      # Ignore differences that are expected
+      ignoreDifferences:
+        # Service annotations may change
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .metadata.annotations
+        # Secret data may change
+        - group: ""
+          kind: Secret
+          jqPathExpressions:
+            - .data
+        # Deployment annotations may change
+        - group: apps
+          kind: Deployment
+          jqPathExpressions:
+            - .metadata.annotations
+        # StatefulSet annotations may change
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .metadata.annotations
+      revisionHistoryLimit: 10
+

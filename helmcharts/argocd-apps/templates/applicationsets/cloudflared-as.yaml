@@ -1,0 +1,129 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cloudflared
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"  # Deploy after core infrastructure
+spec:
+  generators:
+    # Cluster generator - automatically discovers clusters registered in ArgoCD
+    - clusters:
+        selector:
+          matchLabels:
+            # Deploy to clusters with this label
+            cloudflared: "true"
+        values:
+          # "local" matches this cluster's own environment label (local-cluster-secret.yaml)
+          # and helmcharts/cloudflared/values/local.yaml's environment override.
+          environment: "local"
+
+    # dev's own cloudflared, connected to a separate, dedicated Cloudflare Tunnel (not the
+    # shared "proxmox-rke2" tunnel above) -- see helmcharts/cloudflared/values/dev.yaml for why
+    # (deterministic per-tunnel DNS routing vs. connector-selection ambiguity on a shared tunnel).
+    # Alarmify apps migration (management -> dev), Option D (full alarmify-ui cutover):
+    # alarmify-docs/docs/alarmify-apps-migration-plan.md.
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+        values:
+          environment: "dev"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-cloudflared"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/cloudflared
+        helm:
+          # values.yaml holds shared defaults; values/<environment>.yaml holds only the
+          # differential overrides (local: management's own tunnel name, see
+          # helmcharts/cloudflared/values/local.yaml; dev: separate dedicated-tunnel Vault
+          # path, see helmcharts/cloudflared/values/dev.yaml). Same pattern as
+          # helmcharts/cert-manager / helmcharts/external-dns.
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{values.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: cloudflared
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        
+        # Managed namespace metadata
+        managedNamespaceMetadata:
+          labels:
+            # Cloudflared may need some privileges for network operations
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/audit: restricted
+            pod-security.kubernetes.io/warn: restricted
+            # Additional labels
+            name: cloudflared
+          annotations:
+            # Optional: Add any namespace annotations here
+            argocd.argoproj.io/managed: "true"
+      
+      # Health assessment
+      revisionHistoryLimit: 3
+      
+      # Ignore differences that are expected
+      ignoreDifferences:
+        # Cloudflared deployment may have runtime changes
+        - group: apps
+          kind: Deployment
+          name: cloudflared
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        - group: apps
+          kind: DaemonSet
+          name: cloudflared
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.fieldRef
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        # Webhook caBundle may change during runtime
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        # CRD annotations may be modified by the operator
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations

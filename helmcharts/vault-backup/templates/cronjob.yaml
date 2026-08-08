@@ -1,0 +1,105 @@
+{{- if .Values.enabled }}
+{{- if .Values.s3.bucket }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "vault-backup.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "vault-backup.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  {{- if .Values.startingDeadlineSeconds }}
+  startingDeadlineSeconds: {{ .Values.startingDeadlineSeconds }}
+  {{- end }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      {{- if .Values.activeDeadlineSeconds }}
+      activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+      {{- end }}
+      template:
+        metadata:
+          labels:
+            {{- include "vault-backup.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          serviceAccountName: {{ include "vault-backup.serviceAccountName" . }}
+          restartPolicy: Never
+          securityContext:
+            {{- toYaml .Values.securityContext.pod | nindent 12 }}
+          containers:
+            - name: backup
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/sh
+                - -ceu
+                - |
+                  apk add --no-cache bash curl unzip coreutils ca-certificates >/dev/null
+                  exec /bin/bash /scripts/backup.sh
+              env:
+                - name: VAULT_ADDR
+                  value: {{ .Values.vault.addr | quote }}
+                - name: VAULT_SKIP_VERIFY
+                  value: {{ .Values.vault.skipVerify | quote }}
+                - name: VAULT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.externalSecrets.targetSecretName | quote }}
+                      key: VAULT_TOKEN
+                - name: S3_BUCKET
+                  value: {{ .Values.s3.bucket | quote }}
+                - name: S3_PREFIX
+                  value: {{ .Values.s3.prefix | quote }}
+                - name: S3_REGION
+                  value: {{ .Values.s3.region | quote }}
+                - name: S3_ENDPOINT
+                  value: {{ .Values.s3.endpoint | quote }}
+                - name: S3_FORCE_PATH_STYLE
+                  value: {{ .Values.s3.forcePathStyle | quote }}
+                - name: ARCH
+                  value: {{ .Values.arch | quote }}
+                - name: RCLONE_RELEASE
+                  value: {{ .Values.rclone.version | quote }}
+                - name: WORK_DIR
+                  value: /work
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.externalSecrets.targetSecretName | quote }}
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.externalSecrets.targetSecretName | quote }}
+                      key: AWS_SECRET_ACCESS_KEY
+              securityContext:
+                {{- toYaml .Values.securityContext.container | nindent 16 }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: scripts
+              configMap:
+                name: {{ include "vault-backup.fullname" . }}-script
+                defaultMode: 0555
+            - name: work
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+{{- else }}
+# CronJob omitted until s3.bucket is set in values/local.yaml
+{{- end }}
+{{- end }}

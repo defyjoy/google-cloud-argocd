@@ -1,0 +1,28 @@
+apiVersion: v2
+name: keda
+description: A Helm chart for KEDA - Kubernetes Event-driven Autoscaling
+
+type: application
+version: 0.1.0
+appVersion: "2.18.1"
+
+dependencies:
+  - name: keda
+    version: 2.18.1
+    repository: https://kedacore.github.io/charts
+    condition: keda.enabled
+
+keywords:
+  - keda
+  - autoscaling
+  - event-driven
+  - operator
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/kedacore/keda
+

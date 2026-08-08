@@ -1,0 +1,27 @@
+apiVersion: v2
+name: neo4j
+description: A Helm chart for Neo4j - Graph database platform
+
+type: application
+version: 0.1.0
+appVersion: "5.15.0"
+
+dependencies:
+  - name: neo4j
+    version: 5.15.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: neo4j.enabled
+
+keywords:
+  - neo4j
+  - graph-database
+  - database
+  - cypher
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/neo4j/neo4j

@@ -1,0 +1,7 @@
+environment: dev
+
+externalSecrets:
+  dbHostOverride: postgresql-cluster-rw.cloudnative-pg-system.svc.cluster.local
+
+nats:
+  url: "nats://dev-nats.nats.svc.cluster.local:4222"

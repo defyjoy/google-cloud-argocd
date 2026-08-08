@@ -1,0 +1,86 @@
+# Gateway API CRDs (experimental channel, v1.5.1) -- see helmcharts/gateway-api-crds/README.md.
+# Previously the only dependency in the graph with no declarative source: applied out of band on
+# each cluster build, with no record in git of the version or channel that was live.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    # Third overall, after argocd (-30) and argocd-apps (-29). Ahead of every chart that declares
+    # a Gateway API kind. CRDs depend on nothing themselves.
+    argocd.argoproj.io/sync-wave: "-28"
+spec:
+  generators:
+    - clusters:
+        # Same AND'ed shape as the other infra ApplicationSets so
+        # adoption of the already-live CRDs can be staged one cluster at a time. dev's label is
+        # still commented out in dev-cluster-secret.yaml pending an inventory check.
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+            - key: gateway-api-crds
+              operator: In
+              values:
+                - "true"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: true
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-gateway-api-crds"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "-28"
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/gateway-api-crds
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: default
+
+      syncPolicy:
+        automated:
+          # prune is deliberately false: pruning these CRDs would cascade-delete every Gateway,
+          # HTTPRoute and TCPRoute in the cluster. Removing a CRD is a manual, deliberate act.
+          prune: false
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          # Mandatory, not stylistic -- these CRDs exceed the 256KB last-applied-configuration
+          # annotation limit and a client-side apply fails with "metadata.annotations: Too long".
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      revisionHistoryLimit: 3
+
+      ignoreDifferences:
+        # Istio, cert-manager and the CRDs' own conversion machinery write back to these.
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations
+            - .spec.conversion.webhook.clientConfig.caBundle
+            - .status

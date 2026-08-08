@@ -1,0 +1,12 @@
+enabled: true
+
+vault:
+  addr: "http://local-vault-active.vault.svc:8200"
+
+s3:
+  bucket: "alarmify-vault-raft-backup"
+  region: "us-east-1"
+  prefix: "vault-backups/management"
+
+externalSecrets:
+  vaultPath: infra/vault-backup/s3

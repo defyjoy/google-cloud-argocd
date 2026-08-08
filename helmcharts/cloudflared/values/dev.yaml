@@ -1,0 +1,15 @@
+externalSecrets:
+  vaultPath: alarmify/dev/cloudflared/credentials
+
+cloudflared:
+  replica:
+    allNodes: false
+    count: 2
+
+  tunnelConfig:
+    name: "dev"
+
+  ingress:
+    - hostname: "ui.workquark.org"
+      service: http://gateway.gateway-system.svc.cluster.local:80
+    - service: http_status:404

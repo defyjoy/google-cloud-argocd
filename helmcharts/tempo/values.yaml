@@ -1,0 +1,38 @@
+enabled: true
+
+externalExposure:
+  enabled: true
+
+tempo:
+  tempo:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 100m
+        memory: 512Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+
+  tempoQuery:
+    enabled: false
+
+  persistence:
+    enabled: true
+    storageClassName: standard-rwo
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault

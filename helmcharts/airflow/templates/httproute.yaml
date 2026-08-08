@@ -1,0 +1,38 @@
+---
+# HTTPRoute for Airflow
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: airflow
+  namespace: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/component: api-server
+spec:
+  hostnames:
+    - airflow.{{ .Values.domain }}
+  # NOTE: airflow is not currently deployed on any cluster (its cluster-secret label is
+  # commented out), so these hardcoded parentRefs have no live effect.
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: http
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: https
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ printf "%s-api-server" .Release.Name | quote }}
+          port: 8080
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+

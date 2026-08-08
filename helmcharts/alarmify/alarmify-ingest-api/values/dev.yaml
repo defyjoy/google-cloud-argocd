@@ -1,0 +1,10 @@
+environment: dev
+
+nats:
+  url: "nats://dev-nats.nats.svc.cluster.local:4222"
+
+httproute:
+  hostname: ingest.dev.home.arpa
+
+externalSecrets:
+  dbHostOverride: "postgresql-cluster-rw.cloudnative-pg-system.svc.cluster.local"

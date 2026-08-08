@@ -1,0 +1,30 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: Helm
+spec:
+  useStrictSecurity: true
+  # Picks up the VMServiceScrape/VMPodScrape/VMNodeScrape objects already converted
+  # by victoria-metrics-operator from the existing Prometheus-operator ServiceMonitor/PodMonitor CRs.
+  selectAllByDefault: true
+  replicaCount: {{ .Values.vmagent.replicaCount }}
+  resources:
+    {{- toYaml .Values.vmagent.resources | nindent 4 }}
+  {{- with .Values.vmagent.externalLabels }}
+  externalLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  remoteWrite:
+    - url: {{ .Values.vmagent.remoteWrite.url | default (printf "http://vminsert-%s.%s.svc:8480/insert/0/prometheus/api/v1/write" .Release.Name .Release.Namespace) | quote }}
+      maxDiskUsage: {{ .Values.vmagent.remoteWrite.maxDiskUsagePerURL }}
+      {{- if .Values.vmagent.remoteWrite.auth.enabled }}
+      bearerTokenSecret:
+        name: {{ .Values.vmagent.remoteWrite.auth.secretName }}
+        key: {{ .Values.vmagent.remoteWrite.auth.secretKey }}
+      {{- end }}

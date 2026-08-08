@@ -1,0 +1,140 @@
+enabled: true
+
+atlantis:
+  image:
+    repository: runatlantis/atlantis
+    tag: "v0.27.0"
+    pullPolicy: IfNotPresent
+
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 4141
+    name: http
+
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: atlantis.workquark.org
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: atlantis-tls
+        hosts:
+          - atlantis.workquark.org
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  config:
+    github:
+      user: "atlantis-bot"
+      token: ""
+      webhookSecret: ""
+      appID: ""
+      appKeySecret: ""
+      appSlug: ""
+
+    gitlab:
+      user: "atlantis-bot"
+      token: ""
+      webhookSecret: ""
+
+    repos:
+      - id: "/.*/"
+        apply_requirements: ["approved"]
+        workflow: "default"
+        allowed_regexp: ".*"
+        checkout_strategy: "merge"
+        allow_fork_prs: false
+        allow_draft_prs: false
+
+    workflows:
+      default:
+        plan:
+          steps:
+            - init
+            - plan
+        apply:
+          steps:
+            - apply
+
+    server:
+      port: 4141
+      host: "0.0.0.0"
+      log_level: "info"
+      data_dir: "/atlantis-data"
+      checkout_strategy: "merge"
+      parallel_pool_size: 15
+      parallel_plan: true
+      parallel_apply: true
+      include_mergeable_draft: false
+      include_mergeable: true
+      include_draft: false
+      include_closed: false
+      include_archived: false
+      disable_apply_all: false
+      disable_apply: false
+      disable_autoplan: false
+      disable_autoplan_label: "no-autoplan"
+      disable_merge: false
+      disable_repo_locking: false
+      disable_policy_check: false
+      disable_policy_check_label: "no-policy-check"
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+
+  env:
+    - name: ATLANTIS_DATA_DIR
+      value: "/atlantis-data"
+    - name: ATLANTIS_LOG_LEVEL
+      value: "info"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  replicaCount: 1
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

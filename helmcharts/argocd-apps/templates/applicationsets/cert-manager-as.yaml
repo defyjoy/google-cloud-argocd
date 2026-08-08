@@ -1,0 +1,125 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-18"
+spec:
+  generators:
+    - clusters:
+        # Same clusters generator shape as external-dns-as.yaml / external-secrets-operator-as.yaml
+        # (matchExpressions, environment In [dev, local]) -- no per-component AND'ed gate needed
+        # here, cert-manager has no multi-step sequencing dependency the way the Istio charts do.
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{`"{{name}}-cert-manager"`}}
+      namespace: argocd
+      labels:
+        cluster: {{`"{{name}}"`}}
+        environment: {{`"{{metadata.labels.environment}}"`}}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "-18"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/cert-manager
+        helm:
+          # values.yaml holds shared defaults; values/<environment>.yaml holds only the
+          # differential overrides. Same pattern as helmcharts/cilium.
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: cert-manager
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/audit: restricted
+            pod-security.kubernetes.io/warn: restricted
+            name: cert-manager
+          annotations:
+            argocd.argoproj.io/managed: "true"
+      revisionHistoryLimit: 3
+      # caBundle is patched at runtime from Step root (cert-manager chart's own cabundle-patch
+      # Job; see EDGE-GATEWAY-TLS.md).
+      ignoreDifferences:
+        - group: cert-manager.io
+          kind: ClusterIssuer
+          jqPathExpressions:
+            - .spec.acme.caBundle
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: apps
+          kind: Deployment
+          name: cert-manager
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        - group: apps
+          kind: Deployment
+          name: cert-manager-webhook
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        - group: apps
+          kind: Deployment
+          name: cert-manager-cainjector
+          jqPathExpressions:
+            - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
+        - group: ""
+          kind: Secret
+          name: cert-manager-webhook-ca
+          jqPathExpressions:
+            - .data
+        - group: ""
+          kind: Secret
+          name: cert-manager-webhook-tls
+          jqPathExpressions:
+            - .data
+        # force-sync is ArgoCD's own built-in ExternalSecret resource action (Actions menu /
+        # `argocd app actions run ... --kind ExternalSecret`) for bypassing refreshInterval and
+        # pulling from Vault immediately -- field-manager is argocd-server itself, not part of
+        # this chart. Without this, using that action permanently OutOfSyncs the resource:
+        # selfHeal only reasserts fields the git manifest declares, it never prunes extras.
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .metadata.annotations."force-sync"

@@ -1,0 +1,365 @@
+n8n:
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  main:
+    count: 1
+    editorBaseUrl: "n8n.workquark.org"
+    forceToUseStatefulset: false
+    persistence:
+      enabled: true
+      volumeName: "n8n-data"
+      storageClass: standard-rwo
+
+    extraEnvVars: {}
+    extraSecretNamesForEnvFrom: []
+
+  worker:
+    mode: regular
+
+    concurrency: 10
+    count: 2
+
+    allNodes: false
+
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      metrics:
+        - type: Resource
+          resource:
+            name: memory
+            target:
+              type: Utilization
+              averageUtilization: 80
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 80
+
+      behavior: {}
+
+    pdb:
+      enabled: true
+      minAvailable: 1
+      maxUnavailable: null
+
+    waitMainNodeReady:
+      enabled: false
+      overwriteSchema: ""
+      overwriteUrl: ""
+      healthCheckPath: "/healthz"
+      additionalParameters: []
+    resources: {}
+
+    startupProbe:
+      exec:
+        command: ["/bin/sh", "-c", "ps aux | grep '[n]8n'"]
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 30
+
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+
+    readinessProbe:
+      httpGet:
+        path: /healthz/readiness
+        port: http
+
+    forceToUseStatefulset: false
+
+    persistence:
+      enabled: true
+      volumeName: "n8nworker-data"
+      storageClass: standard-rwo
+
+  webhook:
+    mode: regular
+    url: ""
+    count: 2
+    allNodes: false
+    mcp:
+      enabled: true
+      resources: {}
+      startupProbe:
+        exec:
+          command: ["/bin/sh", "-c", "ps aux | grep '[n]8n'"]
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        failureThreshold: 30
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: http
+
+      readinessProbe:
+        httpGet:
+          path: /healthz/readiness
+          port: http
+
+      extraEnvVars: {}
+      extraSecretNamesForEnvFrom: []
+      volumes: []
+      volumeMounts: []
+      initContainers: []
+      extraContainers: []
+      affinity: {}
+      hostAliases: []
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 80
+
+      behavior: {}
+
+    pdb:
+      enabled: true
+      minAvailable: 1
+      maxUnavailable: null
+
+    waitMainNodeReady:
+      enabled: false
+      overwriteSchema: ""
+      overwriteUrl: ""
+      healthCheckPath: "/healthz"
+      additionalParameters: []
+
+    resources: {}
+
+    startupProbe:
+      exec:
+        command: ["/bin/sh", "-c", "ps aux | grep '[n]8n'"]
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 30
+
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+
+    readinessProbe:
+      httpGet:
+        path: /healthz/readiness
+        port: http
+
+    extraEnvVars: {}
+
+    extraSecretNamesForEnvFrom: []
+
+    volumes: []
+
+    volumeMounts: []
+
+    initContainers: []
+
+    extraContainers: []
+
+    affinity: {}
+
+    hostAliases: []
+
+    runtimeClassName: ""
+
+  taskRunners:
+    mode: internal
+    taskTimeout: 60
+    taskHeartbeatInterval: 30
+    maxConcurrency: 5
+
+    broker:
+      address: "127.0.0.1"
+      port: 5679
+
+    external:
+      mainNodeAuthToken: ""
+      workerNodeAuthToken: ""
+      autoShutdownTimeout: 15
+      port: 5680
+      nodeOptions:
+        - "--max-semi-space-size=16"
+        - "--max-old-space-size=300"
+
+      resources:
+        requests:
+          cpu: 100m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 64Mi
+
+  workflowHistory:
+    enabled: true
+    pruneTime: 336
+
+  encryptionKey: ""
+
+  existingEncryptionKeySecret: ""
+
+  timezone: "Europe/Berlin"
+
+  defaultLocale: en
+
+  gracefulShutdownTimeout: 30
+
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: n8n.workquark.org
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    labels:
+      prometheus-scrape: "enabled"
+    timeout: 10s
+    targetLabels: []
+
+    metricRelabelings: []
+
+    metricsPrefix: "n8n_"
+
+    include:
+      defaultMetrics: true
+      cacheMetrics: false
+      messageEventBusMetrics: false
+      workflowIdLabel: false
+      nodeTypeLabel: false
+      credentialTypeLabel: false
+      apiEndpoints: false
+      apiPathLabel: false
+      apiMethodLabel: false
+      apiStatusCodeLabel: false
+      queueMetrics: false
+
+  extraEnvVars: {}
+
+  extraSecretNamesForEnvFrom: []
+
+  resources: {}
+
+  livenessProbe: {}
+
+  readinessProbe: {}
+
+  volumes: []
+
+  volumeMounts: []
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  dnsPolicy: ""
+  dnsConfig: {}
+  redis:
+    enabled: false
+    architecture: standalone
+
+    image:
+      repository: bitnamilegacy/redis
+
+    auth:
+      enabled: true
+
+    master:
+      service:
+        ports:
+          redis: 6379
+
+      persistence:
+        enabled: false
+
+  postgresql:
+    enabled: true
+    architecture: standalone
+
+    image:
+      repository: bitnamilegacy/postgresql
+
+    primary:
+      service:
+        ports:
+          postgresql: 5432
+
+      persistence:
+        enabled: true
+        storageClass: standard-rwo
+
+    auth:
+      username: ""
+      password: ""
+      database: "n8n"
+
+  minio:
+    enabled: false
+    mode: standalone
+    deploymentUpdate:
+      type: Recreate
+    statefulSetUpdate:
+      updateStrategy: Recreate
+
+    drivesPerNode: 1
+    replicas: 1
+    pools: 1
+    rootUser: "minioadmin"
+    rootPassword: "minioadmin"
+
+    resources:
+      requests:
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+
+    persistence:
+      enabled: true
+      storageClass: standard-rwo
+      size: 40Gi
+
+    ingress:
+      enabled: true
+      hosts:
+        - minio.workquark.org
+      path: /
+
+    users:
+      - accessKey: n8n-user
+        secretKey: Change_Me
+        policy: n8n-policy
+
+    buckets:
+      - name: n8n-bucket
+        policy: none
+        purge: false
+        versioning: false

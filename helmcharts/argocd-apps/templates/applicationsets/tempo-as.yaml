@@ -1,0 +1,84 @@
+# Tempo ApplicationSet
+# Grafana Tempo (single-binary mode) -- the tracing backend Kiali actually needs. Central
+# only, management-only, same placement as Kiali server / VictoriaMetrics VMCluster (dev
+# has no local tracing backend, just sends OTLP directly here over the flat LAN -- see
+# helmcharts/tempo/Chart.yaml and
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tempo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "14"  # alongside kiali -- both are Istio-observability, no hard ordering dependency between them
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            tempo: "true"
+        values:
+          environment: "production"
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: "{{`{{name}}`}}-tempo"
+      namespace: argocd
+      labels:
+        cluster: "{{`{{name}}`}}"
+        environment: "{{`{{values.environment}}`}}"
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "14"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/tempo
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: "{{`{{server}}`}}"
+        namespace: tempo
+      # Same StatefulSet/PVC drift-suppression precedent as stepca-as.yaml -- the PVC's own
+      # status/annotations churn on every reconcile otherwise.
+      ignoreDifferences:
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates
+        - group: ""
+          kind: PersistentVolumeClaim
+          jqPathExpressions:
+            - .status
+            - .metadata.annotations
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/audit: restricted
+            pod-security.kubernetes.io/warn: restricted
+            name: tempo
+          annotations:
+            argocd.argoproj.io/managed: "true"
+      revisionHistoryLimit: 3

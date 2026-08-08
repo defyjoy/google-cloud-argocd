@@ -1,0 +1,119 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: plane
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/instance: plane
+    app.kubernetes.io/component: applicationset
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+    # After core infra, storage, cert-manager, external-dns and the Istio ambient mesh +
+    # the north-south Gateway is up, so the HTTPRoute has a Gateway to attach to.
+    argocd.argoproj.io/sync-wave: "15"
+spec:
+  generators:
+  - clusters:
+      selector:
+        # Target the management cluster via its existing `environment: local` label (the same
+        # label the Istio charts use to select values/local.yaml) — no per-app opt-in label
+        # needs to be added to local-cluster-secret.yaml. `In` is used rather than a bare
+        # matchLabels so this stays a deliberate, single-cluster selection.
+        matchExpressions:
+          - key: environment
+            operator: In
+            values:
+              - local
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-plane"` }}
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: plane
+        app.kubernetes.io/instance: plane
+        app.kubernetes.io/component: application
+        app.kubernetes.io/part-of: argocd-apps
+        app.kubernetes.io/managed-by: Helm
+        cluster: {{ `"{{name}}"` }}
+        environment: production
+      annotations:
+        argocd.argoproj.io/managed: "true"
+        argocd.argoproj.io/sync-wave: "15"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/plane
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: plane
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          annotations:
+            argocd.argoproj.io/managed: "true"
+          labels:
+            name: "plane"
+            # Plane's bundled postgres/redis/rabbitmq/minio run as root — privileged PSA,
+            # same as harbor. Ambient-enrolled for mesh mTLS (same as harbor/zitadel).
+            pod-security.kubernetes.io/audit: "privileged"
+            pod-security.kubernetes.io/enforce: "privileged"
+            pod-security.kubernetes.io/warn: "privileged"
+      ignoreDifferences:
+        # Gateway API: apiserver/SSA default group, kind, and weight on HTTPRoute backendRefs.
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+          jqPathExpressions:
+            - .spec.rules[].backendRefs
+        # StatefulSet volumeClaimTemplates may change during runtime (pg/redis/rabbitmq/minio).
+        - group: apps
+          kind: StatefulSet
+          jsonPointers:
+            - /spec/volumeClaimTemplates
+        # Deployment replicas may be managed by an HPA.
+        - group: apps
+          kind: Deployment
+          jqPathExpressions:
+            - .spec.replicas
+        # Service annotations may be mutated by controllers.
+        - group: ""
+          kind: Service
+          jqPathExpressions:
+            - .metadata.annotations
+        # Secret data (generated passwords/keys).
+        - group: ""
+          kind: Secret
+          jqPathExpressions:
+            - .data
+        # ConfigMap data.
+        - group: ""
+          kind: ConfigMap
+          jqPathExpressions:
+            - .data
+      revisionHistoryLimit: 3

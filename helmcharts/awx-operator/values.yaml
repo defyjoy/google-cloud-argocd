@@ -1,0 +1,49 @@
+enabled: true
+
+awx-operator:
+  operator:
+    replicas: 1
+    image:
+      repository: quay.io/ansible/awx-operator
+      tag: "2.7.0"
+      pullPolicy: IfNotPresent
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    privileged: false
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  serviceAccount:
+    create: true
+    name: awx-operator
+
+  rbac:
+    create: true

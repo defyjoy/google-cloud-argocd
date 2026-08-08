@@ -1,0 +1,89 @@
+# Cilium ApplicationSet — deploys Cilium as the cluster CNI + kube-proxy replacement +
+# LoadBalancer (LB-IPAM / L2), replacing Flannel and kube-proxy.
+# Chart: helmcharts/cilium (wraps upstream https://helm.cilium.io, pinned 1.20.0-rc.1).
+# Decision + runbook: alarmify-docs docs/infrastructure/adr-009-cilium-cni-loadbalancer-migration.md
+# and docs/cilium/cilium-migration-plan.md.
+#
+# GATED on a per-cluster `cilium: "true"` label (in addition to `environment In [dev, local]`),
+# so this stays DORMANT until a cluster is deliberately cut over: label dev first (plan Phase 3),
+# management only after dev is fully validated (Phases 6-9). The label change is declarative in
+# the cluster Secret templates (helmcharts/argocd/templates/cluster/{dev,local}-cluster-secret.yaml),
+# never `kubectl label` (selfHeal reverts it).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cilium
+  namespace: argocd
+  annotations:
+    # Core networking — earliest sync-wave so it precedes everything else on a cluster.
+    argocd.argoproj.io/sync-wave: "-20"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            # dev canary (Phases 2-5) plus management (`local`), which has now cut over to
+            # Cilium as the sole LoadBalancer (Phases 6-9, alarmify-docs
+            # docs/cilium/cilium-migration-plan.md). Still label-gated per cluster via `cilium`.
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+            - key: cilium
+              operator: In
+              values:
+                - "true"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-cilium"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "-20"
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/cilium
+        helm:
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: kube-system
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          # Cilium registers its CRDs via the operator at runtime; the LB-IPAM / L2 CRs may need
+          # a few retries before those CRDs exist. Generous backoff covers that window.
+          limit: 8
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 5m
+
+      revisionHistoryLimit: 3

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Versioned pre-commit hook. Install with:  task hooks:install
+#
+# .git/hooks is not tracked by git, so this lives in scripts/git-hooks/ and is
+# symlinked into place. Keep it fast — it runs on every commit (~70ms today).
+#
+# Bypass for a single commit with:  git commit --no-verify
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+# Only worth running when a values file is actually staged.
+if git diff --cached --name-only --diff-filter=ACM \
+    | grep -qE '^helmcharts/.*(values[^/]*\.ya?ml|values/[^/]+\.ya?ml)$'; then
+  if ! python3 "$repo_root/scripts/helm/values-comments.py" --check; then
+    cat >&2 <<'EOF'
+
+pre-commit: values files must not contain comments.
+Move the rationale into that chart's README.md (prose + the snippet it explains),
+then re-stage. See CLAUDE.md -> Helm chart conventions.
+
+  task lint:values:fix     # strip them automatically
+  git commit --no-verify   # bypass this check for one commit
+EOF
+    exit 1
+  fi
+fi

@@ -1,0 +1,13 @@
+devCluster:
+  enabled: false
+
+corednsKubeSystem:
+  enabled: false
+
+argo-cd:
+  redisSecretInit:
+    enabled: true
+
+  server:
+    httproute:
+      enabled: false

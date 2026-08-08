@@ -1,0 +1,99 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: Helm
+    cluster: local
+    environment: production
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+    targetRevision: HEAD
+    path: helmcharts/kube-prometheus-stack
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-prometheus-stack
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    managedNamespaceMetadata:
+      labels:
+        name: kube-prometheus-stack
+        pod-security.kubernetes.io/audit: privileged
+        pod-security.kubernetes.io/enforce: privileged
+        pod-security.kubernetes.io/warn: privileged
+      annotations:
+        argocd.argoproj.io/managed: "true"
+  revisionHistoryLimit: 10
+  # ignoreDifferences:
+  #   # Webhook caBundle may change during runtime
+  #   - group: admissionregistration.k8s.io
+  #     kind: ValidatingWebhookConfiguration
+  #     jqPathExpressions:
+  #       - .webhooks[]?.clientConfig.caBundle
+  #   - group: admissionregistration.k8s.io
+  #     kind: MutatingWebhookConfiguration
+  #     jqPathExpressions:
+  #       - .webhooks[]?.clientConfig.caBundle
+  #   # CRD annotations may be modified by the operator
+  #   - group: apiextensions.k8s.io
+  #     kind: CustomResourceDefinition
+  #     jqPathExpressions:
+  #       - .metadata.annotations
+  #   # Prometheus resources may have runtime changes
+  #   - group: monitoring.coreos.com
+  #     kind: ServiceMonitor
+  #     jqPathExpressions:
+  #       - .metadata.annotations
+  #   - group: monitoring.coreos.com
+  #     kind: PrometheusRule
+  #     jqPathExpressions:
+  #       - .metadata.annotations
+  #   - group: monitoring.coreos.com
+  #     kind: Alertmanager
+  #     jqPathExpressions:
+  #       - .metadata.annotations
+  #   - group: monitoring.coreos.com
+  #     kind: Prometheus
+  #     jqPathExpressions:
+  #       - .metadata.annotations
+  #   # DISABLED: PagerDuty integration secret ignored - PagerDuty integration disabled
+  #   # Ignore secrets managed by External Secrets Operator
+  #   # External Secrets Operator adds annotations and labels that differ from Helm template
+  #   # - group: ""
+  #   #   kind: Secret
+  #   #   name: pagerduty-integration-key
+  #   #   jqPathExpressions:
+  #   #     - .data
+  #   #     - .metadata.annotations."reconcile.external-secrets.io/data-hash"
+  #       - .metadata.annotations."reconcile.external-secrets.io/created-by"
+  #       - .metadata.annotations."reconcile.external-secrets.io/managed"
+  #       - .metadata.labels."reconcile.external-secrets.io/managed"
+

@@ -1,0 +1,27 @@
+apiVersion: v2
+name: yugabyte
+description: A Helm chart for YugabyteDB - Distributed SQL database
+
+type: application
+version: 0.1.0
+appVersion: "2.21.0.0"
+
+dependencies:
+  - name: yugabyte
+    version: 2.21.0
+    repository: https://charts.yugabyte.com
+    condition: yugabyte.enabled
+
+keywords:
+  - yugabyte
+  - database
+  - sql
+  - distributed
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/yugabyte/yugabyte-db

@@ -1,0 +1,30 @@
+apiVersion: v2
+name: zitadel
+description: Zitadel identity provider — wrapper around the official Helm chart
+
+type: application
+version: 0.1.0
+appVersion: "v4.15.3"
+
+dependencies:
+  - name: zitadel
+    version: 10.0.4
+    repository: https://charts.zitadel.com
+    condition: enabled
+
+keywords:
+  - zitadel
+  - identity
+  - oidc
+  - saml
+  - scim
+  - ciam
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+sources:
+  - https://github.com/zitadel/zitadel
+  - https://github.com/zitadel/zitadel-charts

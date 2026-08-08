@@ -1,0 +1,78 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: forgejo-runner
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            forgejo-runner: "true"
+        values:
+          environment: "production"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-forgejo-runner"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/forgejo-runner
+        helm:
+          valueFiles:
+            - values.yaml
+          parameters: []
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: forgejo-runner
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: privileged
+            pod-security.kubernetes.io/audit: privileged
+            pod-security.kubernetes.io/warn: privileged
+            name: forgejo-runner
+          annotations:
+            argocd.argoproj.io/managed: "true"
+
+      revisionHistoryLimit: 3
+
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jqPathExpressions:
+            - .spec.template.metadata.annotations["config-hash"]

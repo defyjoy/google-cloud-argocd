@@ -1,0 +1,35 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vault
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: ui
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: vault.workquark.org
+    external-dns.alpha.kubernetes.io/class: cloudflare
+    # target annotation lives on the parent Gateway, not here.
+spec:
+  hostnames:
+    - vault.workquark.org
+  # http listener only -- TLS is terminated at the Cloudflare edge, not here.
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: http
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Release.Name }}-ui
+          port: 8200
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+

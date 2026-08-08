@@ -1,0 +1,19 @@
+externalSecrets:
+  vaultPath: alarmify/local/cloudflared/credentials
+
+cloudflared:
+  tunnelConfig:
+    name: "management"
+
+  ingress:
+    - hostname: "zitadel.workquark.org"
+      service: http://gateway.gateway-system.svc.cluster.local:80
+      originRequest:
+        http2Origin: true
+    - hostname: "harbor.workquark.org"
+      service: http://gateway.gateway-system.svc.cluster.local:80
+    - hostname: "plane.workquark.org"
+      service: http://gateway.gateway-system.svc.cluster.local:80
+    - hostname: "vault.workquark.org"
+      service: http://gateway.gateway-system.svc.cluster.local:80
+    - service: http_status:404

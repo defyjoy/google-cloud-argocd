@@ -1,0 +1,30 @@
+apiVersion: v2
+name: tailscale
+description: A Helm chart for Tailscale Kubernetes Operator deployment
+
+type: application
+version: 0.1.0
+appVersion: "1.70.0"
+
+keywords:
+  - tailscale
+  - vpn
+  - networking
+  - wireguard
+  - operator
+  - gitops
+
+maintainers:
+  - name: DevOps Team
+    email: devops@workquark.org
+
+dependencies:
+  - name: tailscale-operator
+    version: "*"
+    repository: https://pkgs.tailscale.com/helmcharts
+    condition: tailscale-operator.enabled
+
+sources:
+  - https://tailscale.com/kb/1236/kubernetes-operator
+  - https://github.com/tailscale/tailscale
+
