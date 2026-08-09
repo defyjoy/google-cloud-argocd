@@ -1,0 +1,27 @@
+{{- /*
+  Optional override for the load balancer health check. GKE normally derives the health check from
+  the backend Pod's readiness probe, which is correct for argocd-server, so this is OFF by default.
+  Turn it on only when a backend's readiness probe and its LB-facing health endpoint differ.
+*/ -}}
+{{- if .Values.healthCheckPolicy.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ .Values.gateway.name }}-healthcheck
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: gke-gateway
+    app.kubernetes.io/component: healthcheck
+    app.kubernetes.io/managed-by: Helm
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: {{ .Values.healthCheckPolicy.port }}
+        requestPath: {{ .Values.healthCheckPolicy.requestPath | quote }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Values.healthCheckPolicy.targetService }}
+{{- end }}

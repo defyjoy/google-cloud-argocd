@@ -1,0 +1,52 @@
+{{- /*
+  The single Gateway every HTTPRoute in this repo names as its parentRef
+  (gateway-system/gateway). gatewayClassName is deliberately unset in values.yaml so a cluster
+  that forgot its overlay fails loudly at render time rather than silently provisioning the wrong
+  class of load balancer.
+
+  Only the `http` and `https` sectionNames are served. The `postgres`, `nats`, `vminsert` and
+  `tempo-otlp` sectionNames that four TCPRoutes in this repo reference CANNOT be added: no GKE
+  GatewayClass implements TCPRoute. See README.md -> "What this Gateway does not serve".
+*/ -}}
+{{- if not .Values.gateway.gatewayClassName }}
+{{- fail "gateway.gatewayClassName is required — set it in helmcharts/gke-gateway/values/<cluster>.yaml (see README.md)" }}
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: gke-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: Helm
+spec:
+  gatewayClassName: {{ .Values.gateway.gatewayClassName }}
+  {{- with .Values.gateway.addressName }}
+  addresses:
+    - type: NamedAddress
+      value: {{ . | quote }}
+  {{- end }}
+  listeners:
+    {{- if .Values.gateway.http.enabled }}
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.gateway.http.port }}
+      allowedRoutes:
+        namespaces:
+          from: {{ .Values.gateway.allowedRoutesFrom }}
+    {{- end }}
+    {{- if .Values.gateway.https.enabled }}
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.https.port }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          {{- range .Values.gateway.https.certificateRefs }}
+          - {{ toYaml . | nindent 12 | trim }}
+          {{- end }}
+      allowedRoutes:
+        namespaces:
+          from: {{ .Values.gateway.allowedRoutesFrom }}
+    {{- end }}

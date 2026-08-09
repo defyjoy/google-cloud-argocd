@@ -1,0 +1,3 @@
+gateway:
+  gatewayClassName: gke-l7-rilb
+  addressName: ""

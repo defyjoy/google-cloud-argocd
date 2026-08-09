@@ -1,0 +1,26 @@
+enabled: true
+
+namespace:
+  create: true
+  name: gateway-system
+
+gateway:
+  name: gateway
+  gatewayClassName: ""
+  addressName: ""
+  allowedRoutesFrom: All
+
+  http:
+    enabled: true
+    port: 80
+
+  https:
+    enabled: false
+    port: 443
+    certificateRefs: []
+
+healthCheckPolicy:
+  enabled: false
+  targetService: ""
+  port: 8080
+  requestPath: /healthz

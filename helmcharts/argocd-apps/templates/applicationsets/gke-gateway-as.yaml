@@ -1,0 +1,89 @@
+# GKE-managed Gateway — provisions gateway-system/gateway, the single Gateway every HTTPRoute in
+# this repo names as its parentRef. Replaces the removed istio/istio-gateway chart.
+#
+# Label-gated on `gke-gateway: "true"` so it stays dormant on any cluster that has not had GKE's
+# Gateway API enabled (`gcloud container clusters update ... --gateway-api=standard`). Without
+# that, the GatewayClasses this chart references do not exist and the Application never goes
+# Healthy. See helmcharts/gke-gateway/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: gke-gateway
+  namespace: argocd
+  annotations:
+    # Ahead of every chart that templates a route, behind only argocd (-30) and argocd-apps (-29).
+    argocd.argoproj.io/sync-wave: "-27"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - dev
+                - local
+            - key: gke-gateway
+              operator: In
+              values:
+                - "true"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{`"{{name}}-gke-gateway"`}}
+      namespace: argocd
+      labels:
+        cluster: {{`"{{name}}"`}}
+        environment: {{`"{{metadata.labels.environment}}"`}}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "-27"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        targetRevision: HEAD
+        path: helmcharts/gke-gateway
+        helm:
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: gateway-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        managedNamespaceMetadata:
+          labels:
+            name: gateway-system
+          annotations:
+            argocd.argoproj.io/managed: "true"
+      revisionHistoryLimit: 3
+      ignoreDifferences:
+        # The GKE Gateway controller writes the provisioned LB address, listener state and
+        # conditions back onto the Gateway. None of that is ours to reconcile.
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          jqPathExpressions:
+            - .status
+            - .metadata.annotations."networking.gke.io/last-reconcile-time"

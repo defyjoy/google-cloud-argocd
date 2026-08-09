@@ -35,8 +35,8 @@ vars:
   CILIUM_NAMESPACE: kube-system
   CILIUM_RELEASE_NAME: cilium
   CILIUM_VALUES: values/local.yaml
-  GATEWAY_API_VERSION: v1.5.1
-  GATEWAY_API_CHANNEL: experimental
+  # Gateway API CRDs are NOT installed by this repo — on GKE they are GKE-owned and arrive via
+  # `gcloud container clusters update --gateway-api=standard`. task check-gateway-api verifies.
   ARGOCD_GIT_REPO_KEY: defyjoy-argocd
   ARGOCD_GIT_REPO_URL: git@github.com:defyjoy/argocd-google-cloud.git
   ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/github"

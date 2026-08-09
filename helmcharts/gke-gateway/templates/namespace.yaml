@@ -1,0 +1,18 @@
+{{- /*
+  gateway-system is created here rather than left to Argo CD's CreateNamespace=true so the
+  Gateway and the namespace land in the same wave, and so the namespace survives with a stable
+  label set even if the Application is ever re-created.
+*/ -}}
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: gke-gateway
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/managed-by: Helm
+    name: {{ .Values.namespace.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+{{- end }}
