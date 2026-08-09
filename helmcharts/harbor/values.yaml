@@ -13,7 +13,7 @@ harbor:
         external-dns.alpha.kubernetes.io/hostname: harbor.jrclabs.xyz
         external-dns.alpha.kubernetes.io/class: cloudflare
       parentRefs:
-        - name: gateway
+        - name: gateway-external
           namespace: gateway-system
           group: gateway.networking.k8s.io
           kind: Gateway

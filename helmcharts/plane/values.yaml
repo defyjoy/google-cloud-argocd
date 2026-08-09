@@ -1,6 +1,6 @@
 httproute:
   parentRef:
-    name: gateway
+    name: gateway-external
     namespace: gateway-system
   hostnames:
     - plane.jrclabs.xyz

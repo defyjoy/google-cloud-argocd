@@ -11,10 +11,10 @@ dangles and no north-south traffic flows (README.md → Known gaps #1).
 | `gateways.internal` | **`gateway`** | `gke-l7-rilb` | VPC-internal, via the `yeti-hub-vpn` OpenVPN server |
 | `gateways.external` | **`gateway-external`** | `gke-l7-regional-external-managed` | Public internet |
 
-**`internal` deliberately holds the bare name `gateway`.** Every `HTTPRoute` and `TCPRoute` in
-this repo already hard-codes `parentRefs[].name: gateway`, so keeping that name on the internal
-Gateway means none of those ~17 routes had to change, and the default posture for anything in
-this repo is *not* internet-facing. A route opts in to the public path explicitly:
+**`internal` deliberately holds the bare name `gateway`.** Nearly every `HTTPRoute` in this repo
+hard-codes `parentRefs[].name: gateway`, so keeping that name on the internal Gateway means most
+routes never had to change, and the default posture for anything in this repo is *not*
+internet-facing. A route opts in to the public path explicitly:
 
 ```yaml
 parentRefs:
@@ -169,7 +169,7 @@ higher on the `external` entry than the internal one: a wrong default there is a
 front of something that was meant to be private.
 
 Consequence: `helm template helmcharts/gke-gateway` on its own **errors**. That is intended —
-pass the overlay, exactly as `cilium` and `cloudflared` require.
+pass the overlay, exactly as `cilium` requires.
 
 ### Why `internal` is `gke-l7-rilb`
 
@@ -324,28 +324,28 @@ it explicitly.
 
 **No GKE GatewayClass implements `TCPRoute`** — not `gke-l7-rilb`, not
 `gke-l7-regional-external-managed`, not any other. GKE ships the Gateway API **standard** channel,
-which has no `TCPRoute` type at all, so adding the external Gateway does nothing for these. Four
-charts template one, against `sectionName`s neither Gateway can offer (`postgres`, `nats`,
-`vminsert`, `tempo-otlp`):
+which has no `TCPRoute` type at all. Neither Gateway offers a `postgres`, `nats`, `vminsert` or
+`tempo-otlp` listener, and neither ever will.
 
-| Chart | Route | sectionName |
-|---|---|---|
-| `helmcharts/cloudnative-pg` | `postgresql-tcproute.yaml` | `postgres` |
-| `helmcharts/nats` | `nats-tcproute.yaml` | `nats` |
-| `helmcharts/victoria-metrics` | `vminsert-tcproute.yaml` | `vminsert` |
-| `helmcharts/tempo` | `tempo-otlp-tcproute.yaml` | `tempo-otlp` |
+Four charts used to template a `TCPRoute` against exactly those `sectionName`s, and each failed to
+sync with `could not find gateway.networking.k8s.io/TCPRoute`. All four were resolved on
+2026-08-09, along the only two lines available:
 
-Those four Applications will fail to sync with `could not find
-gateway.networking.k8s.io/TCPRoute` until each chart gates its TCPRoute off per-cluster. **They
-are deliberately left in place** rather than deleted — the L4 exposure they describe is a real
-requirement that needs a real replacement, not a quiet removal. The options, none of them free:
+| Chart | Was | Now | Why that split |
+|---|---|---|---|
+| `helmcharts/victoria-metrics` | TCPRoute `vminsert` | `HTTPRoute` → vmauth, internal | remote-write is an HTTP POST |
+| `helmcharts/tempo` | TCPRoute `tempo-otlp` → 4317 | `HTTPRoute` → **4318**, internal | OTLP/HTTP; gRPC would need h2c |
+| `helmcharts/cloudnative-pg` | TCPRoute `postgres` | internal L4 `LoadBalancer` | PostgreSQL wire protocol is not HTTP |
+| `helmcharts/nats` | TCPRoute `nats` | internal L4 `LoadBalancer` | NATS line protocol is not HTTP |
 
-- an **internal passthrough Network Load Balancer** per service (a plain `Service`
-  `type: LoadBalancer` with `networking.gke.io/load-balancer-type: Internal`), which is what
-  these four actually need and what an L7 Gateway was never going to give them;
-- Cloudflare Tunnel / Tailscale for the ones that only need operator access;
-- an in-cluster Gateway implementation that does support `TCPRoute` — but that means giving up
-  the GKE-managed Gateway for the L7 traffic too.
+The rule that split them is worth keeping: **if the protocol is already HTTP, it becomes an
+`HTTPRoute`; if it is not, it gets an internal passthrough load balancer.** An `HTTPRoute` in
+front of Postgres or NATS is Accepted by the API server and then blackholes every connection —
+the worst of both worlds, because it looks configured.
+
+Both L4 services are gated behind `externalExposure.enabled` in their own charts and each costs
+one internal LB IP. Tempo's move from 4317 to 4318 means **senders must use an OTLP HTTP
+exporter**; see `helmcharts/tempo/README.md`.
 
 ## Sync wave −27
 

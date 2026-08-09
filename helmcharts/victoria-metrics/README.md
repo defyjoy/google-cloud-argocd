@@ -66,19 +66,38 @@ vmcluster:
       enabled: false
 ```
 
-Off by default. vminsert is a bare ClusterIP today (plan §2.3), which is fine while only
-same-cluster VMAgents write to it.
+Off by default; `values/local.yaml` turns it on and supplies the hostname:
 
-> ⚠️ **Review turning this on by itself.** It adds a TCPRoute
-> (`templates/vminsert-tcproute.yaml`) to the *existing production* north-south gateway
-> (`.150`) — a new port on a gateway already serving live traffic.
+```yaml
+vmcluster:
+  vminsert:
+    externalExposure:
+      enabled: true
+      hostname: vminsert.jrclabs.xyz
+```
+
+vminsert is a bare ClusterIP otherwise, which is fine while only same-cluster VMAgents write
+to it.
+
+Renders `templates/vminsert-httproute.yaml`, attached to the `http` listener of the **internal**
+`gateway` (`gke-l7-rilb`) in `gateway-system`. Internal on purpose: remote-write carries every
+series this cluster holds and is authenticated only by a bearer token.
+
+This was a `TCPRoute` until the GKE migration. Prometheus remote-write is an ordinary HTTP POST
+and vmauth is an HTTP proxy, so `HTTPRoute` is the protocol it always should have been — and the
+TCPRoute could never have been served anyway: GKE ships the Gateway API standard channel, which
+has no `TCPRoute` kind, so the Application failed to sync entirely.
 
 Auth is handled by a **separate vmauth proxy**, not vminsert. Confirmed: vminsert and vmselect
 have no built-in auth mechanism — operator v0.73.1's `VMCluster.spec.vminsert` CRD has no auth
 field, and the official docs state *"External clients must access vminsert and vmselect via
-auth proxy such as vmauth or vmgateway"*. The TCPRoute template enforces `vmauth.enabled` as a
+auth proxy such as vmauth or vmgateway"*. The HTTPRoute template enforces `vmauth.enabled` as a
 hard prerequisite, so enabling exposure alone is still safe with vmauth off (it renders
 nothing).
+
+Dev's VMAgent writes to `http://vminsert.jrclabs.xyz/insert/0/prometheus/api/v1/write`
+(`values/dev.yaml`). That URL previously pointed at `192.168.3.10:8480`, a Proxmox LAN address
+with no meaning in this VPC.
 
 ### vmauth
 
@@ -177,7 +196,7 @@ Targets management's vminsert via the north-south gateway's `vminsert` TCP liste
 over **plain LAN, not through the mesh** — so dev's metrics pipeline doesn't depend on Phase 3
 (east-west) being healthy.
 
-Requires `vmcluster.vminsert.externalExposure.enabled` **and** the TCPRoute to actually be live
+Requires `vmcluster.vminsert.externalExposure.enabled` **and** the HTTPRoute to actually be live
 on management first. If they aren't, writes fail closed (connection refused) rather than being
 silently dropped — a safe failure mode.
 

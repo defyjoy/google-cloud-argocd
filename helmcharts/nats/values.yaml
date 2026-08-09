@@ -1,5 +1,8 @@
 enabled: true
 
+externalExposure:
+  enabled: true
+
 nats:
   enabled: true
 

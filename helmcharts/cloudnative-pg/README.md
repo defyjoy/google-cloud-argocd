@@ -25,6 +25,41 @@ key** — anything at the top level is silently ignored by Helm.
 
 ## Configuration
 
+### External exposure — internal L4 LoadBalancer
+
+```yaml
+externalExposure:
+  enabled: true
+```
+
+Adds an internal `LoadBalancer` Service `postgresql-cluster-rw-lb` on `5432`, reachable from the
+VPC but not the internet (`networking.gke.io/load-balancer-type: Internal`). Costs one internal
+LB IP.
+
+**In-cluster clients must not use it.** zitadel and everything else resolve
+`postgresql-cluster-rw.cloudnative-pg-system.svc` directly; hairpinning through a load balancer
+adds a hop and a failure mode for nothing. This exists for low-churn clients outside the cluster.
+
+#### Why it is declared inside the Cluster, not as a plain Service template
+
+It is rendered through CNPG's own `.spec.managed.services.additional[]` (see
+`templates/pgsql-cluster.yaml`), with `selectorType: rw`, so **the operator owns the selector**.
+
+That matters after a failover. The `-rw` selector tracks whichever instance is currently primary;
+a hand-written Service with a copied selector would keep pointing at the old pod once it is
+demoted to a replica, and writes would fail with `cannot execute INSERT in a read-only
+transaction` while every pod stayed Running and every dashboard stayed green.
+
+#### It used to be a TCPRoute
+
+This replaced a `TCPRoute` on the `postgres` listener of `gateway-system/gateway`. That route was
+unservable on GKE twice over: the Gateway API **standard channel** GKE ships has no `TCPRoute`
+kind at all (so the Application could not sync), and every GatewayClass in use here is an L7
+HTTP(S) load balancer, which cannot carry the PostgreSQL wire protocol under any configuration.
+
+**Do not "fix" this by writing an HTTPRoute.** It would be Accepted by the API server and then
+blackhole every connection — the failure would look like a network problem, not a config error.
+
 ### Security contexts
 
 ```yaml

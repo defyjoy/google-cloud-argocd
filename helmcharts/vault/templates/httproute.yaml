@@ -14,11 +14,17 @@ metadata:
 spec:
   hostnames:
     - vault.jrclabs.xyz
-  # http listener only -- TLS is terminated at the Cloudflare edge, not here.
+  # gateway-external (gke-l7-regional-external-managed), not the internal `gateway`: this was
+  # published through the Cloudflare tunnel until that was removed. external-dns resolves the
+  # parent Gateway's address, so re-pointing here is what moves the record to the public LB.
+  #
+  # http listener only -- the external Gateway has no https listener yet (gke-gateway's
+  # https.enabled is false and cert-manager still issues no certificates), so TLS is
+  # terminated at the Cloudflare edge, not here.
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: gateway
+      name: gateway-external
       namespace: gateway-system
       sectionName: http
   rules:

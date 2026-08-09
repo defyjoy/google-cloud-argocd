@@ -141,6 +141,44 @@ Schema per entry:
 
 ## Configuration
 
+### External exposure — internal L4 LoadBalancer
+
+```yaml
+externalExposure:
+  enabled: true
+```
+
+Renders `templates/nats-internal-lb.yaml`: a `LoadBalancer` Service `<release>-nats-lb` on `4222`,
+reachable from the VPC but not the internet (`networking.gke.io/load-balancer-type: Internal`).
+Costs one internal LB IP.
+
+It is a **separate** Service rather than a patch of the subchart's `local-nats`, which stays
+ClusterIP. In-cluster clients keep their direct path and are unaffected by LB provisioning or by
+this toggle.
+
+The selector is copied from the subchart's own Service (verified against nats chart `2.12.6`):
+
+```yaml
+app.kubernetes.io/component: nats
+app.kubernetes.io/instance: <release>
+app.kubernetes.io/name: nats
+```
+
+It deliberately omits `app.kubernetes.io/version`, which the subchart *does* set on its labels —
+including it would silently orphan this Service on the next chart bump, leaving an LB with no
+endpoints.
+
+#### It used to be a TCPRoute
+
+This replaced a `TCPRoute` on the `nats` listener of `gateway-system/gateway`, which could not
+work on GKE: the Gateway API **standard channel** has no `TCPRoute` kind (the Application failed
+to sync), and every GatewayClass here is an L7 HTTP(S) load balancer, which cannot carry the NATS
+client protocol.
+
+**Do not replace this with an HTTPRoute.** NATS speaks a custom line protocol, not HTTP; the route
+would attach cleanly and then blackhole every connection. If HTTP-level access is ever genuinely
+needed, enable the subchart's **websocket** listener and route *that* — it is real HTTP.
+
 ### JetStream storage
 
 ```yaml

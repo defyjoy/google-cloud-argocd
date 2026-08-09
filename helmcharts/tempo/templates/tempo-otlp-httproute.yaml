@@ -1,0 +1,54 @@
+{{- /*
+Exposes Tempo's OTLP receiver on the internal north-south gateway for dev's cross-cluster trace
+export. Same pattern as helmcharts/victoria-metrics's vminsert-httproute.yaml, minus the auth
+hop (Tempo's OTLP receiver has no built-in auth option to proxy through).
+
+Was a TCPRoute to port 4317. Two things changed:
+
+  - TCPRoute is experimental-channel only and GKE ships the standard channel, so the kind does
+    not exist on this cluster and the Application could not sync at all.
+  - The backend moved 4317 -> 4318, i.e. OTLP/gRPC -> OTLP/HTTP (subchart port name
+    `tempo-otlp-http`, verified against tempo chart 1.23.3). gRPC is HTTP/2, which an HTTPRoute
+    can carry, but only if the backend Service is marked appProtocol: kubernetes.io/h2c — and
+    that field is not exposed by the upstream chart's service template. OTLP/HTTP needs no such
+    handling, so it is the honest target rather than a route that attaches and then fails to
+    negotiate.
+
+Senders must therefore use an OTLP *HTTP* exporter against this hostname, not the gRPC one.
+
+Attaches to `gateway` (internal, gke-l7-rilb), not gateway-external: the OTLP receiver is
+unauthenticated and must not be reachable from the internet.
+*/ -}}
+{{- if .Values.externalExposure.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tempo-otlp-httproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: tempo-otlp-httproute
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalExposure.hostname | quote }}
+    external-dns.alpha.kubernetes.io/class: cloudflare
+spec:
+  hostnames:
+    - {{ .Values.externalExposure.hostname | quote }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: {{ .Release.Name }}
+          port: 4318
+          weight: 1
+{{- end }}

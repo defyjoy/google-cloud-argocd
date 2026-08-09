@@ -35,7 +35,7 @@ spec:
   # the same hardened securityContext vmagent/vmalert/vmcluster's pods already run with.
   useStrictSecurity: true
   # Pinned explicitly rather than relying on the operator's implicit default -- not
-  # confirmed from source, and the TCPRoute backendRef (vminsert-tcproute.yaml) needs an
+  # confirmed from source, and the HTTPRoute backendRef (vminsert-httproute.yaml) needs an
   # exact port to target.
   port: {{ .Values.vmauth.port | quote }}
   replicaCount: {{ .Values.vmauth.replicaCount }}

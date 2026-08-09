@@ -98,12 +98,9 @@ zitadel:
         external-dns.alpha.kubernetes.io/hostname: zitadel.jrclabs.xyz
         external-dns.alpha.kubernetes.io/class: cloudflare
       parentRefs:
-        - name: gateway
+        - name: gateway-external
           namespace: gateway-system
           sectionName: http
-        - name: gateway
-          namespace: gateway-system
-          sectionName: https
       hostnames:
         - zitadel.jrclabs.xyz
 
@@ -122,12 +119,9 @@ zitadel:
       httpRoute:
         enabled: true
         parentRefs:
-          - name: gateway
+          - name: gateway-external
             namespace: gateway-system
             sectionName: http
-          - name: gateway
-            namespace: gateway-system
-            sectionName: https
         hostnames:
           - zitadel.jrclabs.xyz
 

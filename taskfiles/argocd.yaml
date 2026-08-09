@@ -188,9 +188,9 @@ tasks:
       Enabling Gateway API mutates the control plane, so it is deliberately left to the operator
       rather than done silently inside bootstrap.
 
-      Consequence worth knowing: GKE ships the STANDARD channel, which has no TCPRoute.
-      cloudnative-pg, victoria-metrics, nats and tempo each template one and will fail to sync
-      until it is disabled per-cluster. See helmcharts/gke-gateway/README.md.
+      Consequence worth knowing: GKE ships the STANDARD channel, which has no TCPRoute. No chart
+      here templates one any more — victoria-metrics and tempo are HTTPRoutes, cloudnative-pg and
+      nats use internal L4 LoadBalancer Services. See helmcharts/gke-gateway/README.md.
     cmds:
       - bash "{{.REPO_ROOT}}/scripts/cluster/check-gateway-api.sh"
 

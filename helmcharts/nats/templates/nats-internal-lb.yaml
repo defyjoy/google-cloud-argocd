@@ -1,0 +1,40 @@
+{{- /*
+Internal L4 exposure for out-of-cluster NATS clients.
+
+Replaces the TCPRoute this chart used to attach to gateway-system/gateway. The NATS client
+protocol is a custom line protocol, not HTTP, and every GKE GatewayClass used here is an L7
+HTTP(S) load balancer — so no Gateway in this repo can carry port 4222 at all. The route was
+unservable rather than merely unrouted, and an HTTPRoute in its place would attach cleanly and
+then blackhole every connection.
+
+A separate Service, not a patch of the subchart's `local-nats`: that one stays ClusterIP so
+in-cluster clients keep their direct path and are unaffected by LB provisioning.
+
+The selector matches the nats subchart's own Service selector (verified against nats chart
+2.12.6). It deliberately omits app.kubernetes.io/version so a subchart bump does not orphan it.
+*/ -}}
+{{- if .Values.externalExposure.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-nats-lb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: nats-lb
+  annotations:
+    networking.gke.io/load-balancer-type: "Internal"
+spec:
+  type: LoadBalancer
+  internalTrafficPolicy: Cluster
+  ports:
+    - name: nats
+      port: 4222
+      targetPort: 4222
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: nats
+{{- end }}

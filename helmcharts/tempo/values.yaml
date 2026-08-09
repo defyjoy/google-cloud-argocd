@@ -2,6 +2,7 @@ enabled: true
 
 externalExposure:
   enabled: true
+  hostname: tempo-otlp.jrclabs.xyz
 
 tempo:
   tempo:

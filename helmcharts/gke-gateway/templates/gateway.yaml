@@ -12,15 +12,19 @@
                 `gateway` precisely so none of those ~17 routes have to change.
 
     external -> name `gateway-external` -> gke-l7-regional-external-managed
-                Public. Nothing attaches to it until a route opts in by setting
-                parentRefs[].name: gateway-external.
+                Public. Carries the four hostnames the Cloudflare tunnel used to serve:
+                zitadel, harbor, plane and vault. Everything else stays internal.
 
   gatewayClassName has no base default and this template calls `fail` on it, so a cluster that
   forgot its overlay stops loudly instead of provisioning the wrong class of load balancer —
   which for the external entry would mean publishing a plaintext service.
 
-  The `postgres`, `nats`, `vminsert` and `tempo-otlp` sectionNames that four TCPRoutes reference
-  are absent from BOTH gateways: no GKE GatewayClass implements TCPRoute. See README.md.
+  There are no `postgres`, `nats`, `vminsert` or `tempo-otlp` listeners, and there will not be:
+  no GKE GatewayClass implements TCPRoute, and both classes here are L7 HTTP(S) load balancers.
+  The four TCPRoutes that referenced those sectionNames are gone — vminsert and tempo-otlp
+  became HTTPRoutes on the `http` listener (both protocols were already HTTP), while postgres
+  and nats moved to internal L4 LoadBalancer Services in their own charts, because their wire
+  protocols are not HTTP and no Gateway here can carry them. See README.md.
 */ -}}
 {{- range $key, $gw := .Values.gateways }}
 {{- if $gw.enabled }}

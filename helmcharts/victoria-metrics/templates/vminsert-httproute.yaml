@@ -1,0 +1,51 @@
+{{- /*
+Exposes vminsert on the internal north-south gateway for dev's cross-cluster VMAgent
+remote-write. Off by default: only makes sense where vmcluster itself runs (management).
+
+Was a TCPRoute until the GKE migration. Prometheus remote-write is an ordinary HTTP POST and
+vmauth is an HTTP proxy, so this is the protocol it always should have been — the TCPRoute
+could never have been served: GKE ships the Gateway API standard channel, which has no
+TCPRoute kind at all, and gke-l7-rilb is an L7 HTTP(S) load balancer.
+
+Routes to vmauth (vmauth.yaml), never directly to vminsert -- vminsert/vmselect have no
+built-in auth (confirmed against operator v0.73.1 + official VictoriaMetrics docs, 2026-07-16:
+"External clients must access vminsert and vmselect via auth proxy such as vmauth or
+vmgateway"), so vmauth.enabled is a hard prerequisite for external exposure, not an
+independent toggle.
+
+Attaches to `gateway` (internal, gke-l7-rilb), not gateway-external: remote-write carries every
+series this cluster holds and is authenticated only by a bearer token.
+*/ -}}
+{{- if and .Values.vmcluster.enabled .Values.vmcluster.vminsert.externalExposure.enabled .Values.vmauth.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vminsert-httproute
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: victoria-metrics
+    app.kubernetes.io/component: vminsert-httproute
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.vmcluster.vminsert.externalExposure.hostname | quote }}
+    external-dns.alpha.kubernetes.io/class: cloudflare
+spec:
+  hostnames:
+    - {{ .Values.vmcluster.vminsert.externalExposure.hostname | quote }}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: gateway-system
+      sectionName: http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: vmauth-{{ .Release.Name }}
+          port: {{ .Values.vmauth.port }}
+          weight: 1
+{{- end }}

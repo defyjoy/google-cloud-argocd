@@ -23,19 +23,37 @@ repo.
 ```yaml
 externalExposure:
   enabled: true
+  hostname: tempo-otlp.jrclabs.xyz
 ```
 
-Exposes OTLP gRPC (`4317`) via the north-south gateway
-(`templates/tempo-otlp-tcproute.yaml` → [`istio-gateway`](../istio/istio-gateway/README.md)'s
-`tempo-otlp` listener), so dev's waypoint proxies can export traces here directly over the flat
-LAN.
+Exposes **OTLP/HTTP** via `templates/tempo-otlp-httproute.yaml`, attached to the `http` listener
+of the internal `gateway` (`gke-l7-rilb`) in `gateway-system`, so dev can export traces here.
+
+Internal, not `gateway-external`, on purpose: Tempo's OTLP receiver has no authentication
+whatsoever. Publishing it would let anyone write traces into the backend.
 
 Safe to leave on unconditionally: this chart only ever deploys on management.
+
+#### It used to be a TCPRoute on 4317, and both halves of that changed
+
+This was a `TCPRoute` to OTLP **gRPC** on `4317`. Two independent problems:
+
+- GKE ships the Gateway API **standard channel**, which has no `TCPRoute` kind — the Application
+  failed to sync outright with `could not find gateway.networking.k8s.io/TCPRoute CRD`.
+- gRPC is HTTP/2, which an `HTTPRoute` *can* carry, but only if the backend Service is marked
+  `appProtocol: kubernetes.io/h2c`. The upstream chart's service template does not expose that
+  field, so a route to 4317 would attach cleanly and then fail to negotiate.
+
+Hence the backend moved to **`4318`** (`tempo-otlp-http`, verified against tempo chart 1.23.3),
+which is ordinary HTTP and needs no special handling.
+
+> ⚠️ **Senders must use an OTLP HTTP exporter**, not the gRPC one. An OTLP/gRPC client pointed at
+> this hostname fails at the transport layer, not with a clear protocol error.
 
 ### OTLP receivers need no override
 
 The chart's own defaults already enable both OTLP receivers — gRPC `:4317` and HTTP `:4318`.
-Istio's `Telemetry` CRs point directly at this endpoint.
+The gRPC one stays reachable in-cluster; only the externally routed path is HTTP.
 
 > 🚫 **No OTel Collector is needed in front of Tempo**, unlike ClickHouse, which doesn't
 > natively speak OTLP. See §24 for why ClickStack/HyperDX could not serve this role at all.

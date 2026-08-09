@@ -62,6 +62,40 @@ spec:
   monitoring:
     enablePodMonitor: true
 
+  {{- if .Values.externalExposure.enabled }}
+  # Internal L4 exposure for out-of-cluster clients. This replaced a TCPRoute on the
+  # gateway-system/gateway Gateway: PostgreSQL's wire protocol is not HTTP, and every GKE
+  # GatewayClass here is an L7 HTTP(S) load balancer, so no Gateway in this repo can carry
+  # port 5432 at all — the route was unservable, not merely unrouted.
+  #
+  # Declared through CNPG's own `managed.services` rather than a hand-written Service so the
+  # operator owns the selector. The -rw selector follows failover to the current primary;
+  # a copied selector would silently keep pointing at a demoted replica after one.
+  #
+  # In-cluster clients (zitadel) must keep resolving postgresql-cluster-rw.cloudnative-pg-system
+  # directly — this is for external clients only, and adds an internal LB IP.
+  managed:
+    services:
+      additional:
+        - selectorType: rw
+          updateStrategy: patch
+          serviceTemplate:
+            metadata:
+              name: postgresql-cluster-rw-lb
+              labels:
+                app.kubernetes.io/name: postgresql
+                app.kubernetes.io/component: database-lb
+              annotations:
+                networking.gke.io/load-balancer-type: "Internal"
+            spec:
+              type: LoadBalancer
+              ports:
+                - name: postgres
+                  port: 5432
+                  targetPort: 5432
+                  protocol: TCP
+  {{- end }}
+
   # Bootstrap method - using initdb to create a new cluster
   bootstrap:
     initdb:

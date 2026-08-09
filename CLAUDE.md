@@ -157,8 +157,10 @@ tunnel IDs). Keep it out of the base file.
 - **Omit the base default when a missing override should be loud.** `victoria-metrics` sets
   `externalLabels: {}` so unlabelled series are obvious rather than silently wrong.
 - **Helm replaces lists wholesale — it does not merge them.** Every environment must repeat any
-  catch-all entry. A shared `*.jrclabs.xyz` rule in `cloudflared` made both clusters' tunnels
-  claim every hostname, producing empty-body 404s while both clusters looked healthy.
+  catch-all entry. A shared `*.jrclabs.xyz` rule in the since-removed `cloudflared` chart made
+  both clusters' tunnels claim every hostname, producing empty-body 404s while both clusters
+  looked healthy. `helmcharts/gke-gateway` avoids the trap by keying its `gateways` on a **map**,
+  which Helm deep-merges, so an overlay can set one field without restating the listeners.
 
 ### ArgoCD is not `helm upgrade`
 
@@ -183,17 +185,45 @@ dev's metrics path is VictoriaMetrics VMAgent/VMPodScrape. Any chart shipping a
   VictoriaMetrics, not guessed. `clickstack` is a deliberate exception and is documented as such
   (a trim caused HyperDX CrashLoop).
 
-## Gateway API — nothing provisions the Gateway
+## Gateway API — two Gateways, HTTP only
 
-Every `HTTPRoute`/`TCPRoute` here attaches to a `Gateway` named **`gateway`** in namespace
-**`gateway-system`**, with `sectionName`s `http`, `https`, `postgres`, `nats`, `vminsert`,
-`tempo-otlp`. **No chart in this repo creates that Gateway** — the `istio-gateway` chart that used
-to was removed. Until one is added, every route dangles. Do not "fix" a route by changing its
-`parentRef`; add the Gateway.
+`helmcharts/gke-gateway` provisions both, in namespace **`gateway-system`**:
 
-Likewise `helmcharts/cert-manager` renders **no `Issuer`/`ClusterIssuer`** — its `templates/`
-directory is empty. `--enable-gateway-api=true` is left on so a Gateway HTTP-01 solver works as
-soon as one exists.
+| Gateway | GatewayClass | Use |
+|---|---|---|
+| `gateway` | `gke-l7-rilb` | internal; the default parent for every route |
+| `gateway-external` | `gke-l7-regional-external-managed` | public; only `zitadel`, `harbor`, `plane`, `vault` |
+
+**Both define an `http` listener and nothing else.** `https` is `enabled: false` with empty
+`certificateRefs`, because `helmcharts/cert-manager` still renders **no `Issuer`/`ClusterIssuer`**
+(its `templates/` directory is empty). Any route with `sectionName: https` therefore dangles —
+`kube-prometheus-stack`, `clickstack`, `airflow` and `argo-workflows` still do. Fixing that means
+adding a ClusterIssuer and flipping `https.enabled`, not editing the routes.
+
+### There are no TCPRoutes, and there cannot be
+
+GKE ships the Gateway API **standard channel**, which has no `TCPRoute` kind, and both
+GatewayClasses above are L7 HTTP(S) load balancers. A chart that templates a `TCPRoute` fails to
+sync outright with `could not find gateway.networking.k8s.io/TCPRoute CRD`.
+
+The four that used to (removed 2026-08-09) went two ways, and the split is the rule to follow:
+
+- **Already HTTP → `HTTPRoute` on the `http` listener.** `victoria-metrics` (remote-write via
+  vmauth) and `tempo` (OTLP). Tempo's backend moved 4317 → **4318**, i.e. OTLP/gRPC → OTLP/HTTP:
+  gRPC needs `appProtocol: kubernetes.io/h2c` on the Service, which the upstream chart does not
+  expose. **Senders must use an OTLP HTTP exporter.**
+- **Not HTTP → internal L4 `LoadBalancer` Service.** `cloudnative-pg` (5432) and `nats` (4222).
+  An HTTPRoute would be Accepted and then blackhole every connection, so never "convert" these.
+  CNPG's uses the operator's own `managed.services.additional` so the `-rw` selector follows
+  failover; a hand-copied selector would point at a demoted replica after one.
+
+### Cloudflare Tunnel is gone
+
+`helmcharts/cloudflared` was deleted 2026-08-09. Public traffic goes to `gateway-external`, and
+external-dns (source `gateway-httproute`) publishes that Gateway's address. **external-dns stays**
+— it still manages the `jrclabs.xyz` zone through the Cloudflare DNS API, and its token still
+lives at Vault path `alarmify/<env>/cloudflared/token`. That `cloudflared/` segment is historical;
+do not "clean it up" without re-seeding both clusters' Vaults.
 
 ## Chart READMEs are inherited and partly stale
 

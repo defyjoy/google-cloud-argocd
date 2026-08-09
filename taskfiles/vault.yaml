@@ -145,23 +145,27 @@ tasks:
       - bash "{{.REPO_ROOT}}/scripts/vault/hashicorp-vault-health.sh"
 
   provision-vault-secrets:
-    desc: "Seed bootstrap secrets into Vault from inside the Vault pods (cloudflared tunnel credentials + Cloudflare API token)"
+    desc: "Seed the Cloudflare API token into Vault from inside the Vault pods (for external-dns)"
     summary: |
-      Writes the secrets the cluster needs before it has a working ingress path.
+      Writes the secret the cluster needs before it has a working ingress path.
 
-      Chicken-and-egg this solves: cloudflared cannot serve vault.jrclabs.xyz until it
-      has its tunnel credentials, and those credentials come from Vault — so the public
-      Vault endpoint is unreachable at exactly the moment it is needed. This task talks to
-      Vault through `kubectl exec` (API server path, no tunnel/Gateway/HTTPRoute involved)
-      and runs the `vault` CLI on the active Raft node.
+      Chicken-and-egg this solves: external-dns cannot publish vault.jrclabs.xyz until it
+      has a Cloudflare API token, and that token comes from Vault — so the public Vault
+      endpoint is unreachable at exactly the moment it is needed. This task talks to Vault
+      through `kubectl exec` (API server path, no Gateway/HTTPRoute involved) and runs the
+      `vault` CLI on the active Raft node.
 
-      The Vault pods have no access to ~/.cloudflared, so the cert and credentials files
-      are streamed in over the exec stdin as one JSON object. Nothing is written to the pod
+      The token is streamed in over the exec stdin. Nothing is written to the pod
       filesystem, and no secret is passed as a command argument.
 
       Seeds:
-        {{.VAULT_KV_MOUNT}}/alarmify/<env>/cloudflared/credentials  (fields: cert, credentials)  -> cloudflared
         {{.VAULT_KV_MOUNT}}/alarmify/<env>/cloudflared/token        (field: token)               -> external-dns
+
+      The `cloudflared/` path segment is historical — the Cloudflare TUNNEL was removed and
+      north-south traffic now goes through the GKE Gateways (helmcharts/gke-gateway). Only the
+      Cloudflare DNS API token still lives here, because external-dns manages the jrclabs.xyz
+      zone. Renaming the path would mean rewriting helmcharts/external-dns/values/*.yaml and
+      re-seeding both clusters' Vaults.
 
       The Cloudflare API token is read from .env in the repo root (gitignored; copy
       .env.example). Before writing, the token is checked by listing the zone external-dns
@@ -172,9 +176,6 @@ tasks:
       Parameters:
       - VAULT_ENV: Vault env segment = Argo CD cluster name — local (management) or dev.
                    Both live in the management Vault; dev's ClusterSecretStore points here.
-      - CLOUDFLARED_TUNNEL_ID: defaults to the tunnel for VAULT_ENV. The credentials file is
-                   then ~/.cloudflared/<tunnel-id>.json.
-      - CLOUDFLARED_CERT_FILE / CLOUDFLARED_CREDENTIALS_FILE: override the file paths.
       - CLOUDFLARE_API_TOKEN: overrides the value in .env (for CI).
       - CLOUDFLARE_TOKEN_VERIFY=false: skip the api.cloudflare.com verification call.
       - ENV_FILE: override the dotenv path (default: repo root .env).
@@ -186,7 +187,7 @@ tasks:
 
       Prerequisites:
       - Vault initialized and unsealed (task hashicorp-vault-init, task hashicorp-vault-unseal)
-      - jq, the tunnel credentials present under ~/.cloudflared, and CLOUDFLARE_API_TOKEN in .env
+      - jq, and CLOUDFLARE_API_TOKEN in .env
     dir: "{{.BOOTSTRAP_STATE_DIR}}"
     env:
       REPO_ROOT: "{{.REPO_ROOT}}"

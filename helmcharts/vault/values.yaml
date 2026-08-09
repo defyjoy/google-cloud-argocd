@@ -4,7 +4,7 @@ vault:
   httproute:
     hostname: vault.jrclabs.xyz
     path: /
-    gatewayName: gateway
+    gatewayName: gateway-external
     gatewayNamespace: gateway-system
     gatewayListener: http
     externalDns:

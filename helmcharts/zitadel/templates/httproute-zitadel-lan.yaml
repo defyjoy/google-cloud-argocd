@@ -33,9 +33,13 @@ metadata:
     app.kubernetes.io/component: lan-route
 spec:
   parentRefs:
-    - name: gateway
-      namespace: gateway-system
-      sectionName: https
+    # Stays on the INTERNAL gateway — this is the admin/Terraform path and must not be
+    # published. The public zitadel.jrclabs.xyz route moved to gateway-external when the
+    # Cloudflare tunnel was removed; this one deliberately did not.
+    #
+    # The `https` sectionName that sat alongside `http` was dropped: neither Gateway defines
+    # an https listener (gke-gateway https.enabled is false, and cert-manager issues no
+    # certificates), so it could never be Accepted.
     - name: gateway
       namespace: gateway-system
       sectionName: http

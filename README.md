@@ -85,8 +85,8 @@ Alongside them, in the charts that were kept:
 - **`storageClass: longhorn` → `standard-rwo`** in airflow, clickstack, n8n, plane, rancher, tempo,
   vault, vcluster, victoria-metrics and the cloudnative-pg cluster manifest.
 - **Gateway `parentRef`s** re-pointed from `istio-gateway`/`istio-system` to
-  **`gateway`/`gateway-system`** across all 15 HTTPRoute and 4 TCPRoute charts, plus the
-  `cloudflared` tunnel backends.
+  **`gateway`/`gateway-system`** across all 15 HTTPRoute charts. The 4 TCPRoute charts were
+  later converted (see "TCPRoutes are gone" below), and `cloudflared` was removed entirely.
 - **`repoURL`** re-pointed to `git@github.com:defyjoy/google-cloud-argocd.git` (89 occurrences).
 - **CoreDNS ConfigMap** (`helmcharts/argocd/templates/kube-system/core-dns-cofigmap.yaml`)
   rewritten: the hardcoded `*.home.arpa` → `192.168.x.x` LAN records are now driven by
@@ -99,24 +99,28 @@ Alongside them, in the charts that were kept:
 These are real and unresolved. Nothing here is a TODO comment hiding in a file — it is listed
 because it will bite.
 
-### 1. No chart provisions the `gateway` Gateway
+### 1. No HTTPS anywhere — the `https` listener does not exist
 
-Every `HTTPRoute`/`TCPRoute` in this repo attaches to a `Gateway` named **`gateway`** in namespace
-**`gateway-system`**. The chart that used to create it (`istio/istio-gateway`) is gone, and nothing
-replaced it. **Until you add one, every route in this repo dangles and no north-south traffic
-flows.** The two obvious options:
+`helmcharts/gke-gateway` provisions both Gateways in `gateway-system`: `gateway`
+(`gke-l7-rilb`, internal, the default parent) and `gateway-external`
+(`gke-l7-regional-external-managed`, public, carrying `zitadel`, `harbor`, `plane`, `vault`).
 
-- a GKE-managed Gateway (`gatewayClassName: gke-l7-regional-external-managed`), or
-- re-adding a self-managed ingress chart.
+Both define **only an `http` listener.** `https.enabled` is `false` with empty
+`certificateRefs`, blocked on gap 2. So four charts still carry a `sectionName: https`
+`parentRef` that can never be Accepted: `kube-prometheus-stack`, `clickstack`, `airflow`,
+`argo-workflows`. Of those only `kube-prometheus-stack` is enabled on any cluster today.
 
-The `sectionName`s the existing routes expect are: `http`, `https`, `postgres`, `nats`,
-`vminsert`, `tempo-otlp`.
+Everything reaching `gateway-external` is therefore **plaintext at the load balancer** and
+relies on Cloudflare's proxy (`--cloudflare-proxied` in external-dns) for edge TLS.
+
+Fix the listener, not the routes: add a ClusterIssuer (gap 2), then set
+`gateways.<entry>.https.enabled: true` with a `certificateRefs` entry.
 
 ### 2. cert-manager issues no certificates
 
 There is no `Issuer` or `ClusterIssuer`. `--enable-gateway-api=true` is still set so a
-Gateway HTTP-01 solver works the moment one is added; on GCP a Let's Encrypt DNS-01 solver against
-Cloud DNS is the more likely fit.
+Gateway HTTP-01 solver works against either Gateway; on GCP a Let's Encrypt DNS-01 solver against
+Cloud DNS is the more likely fit. This is what blocks gap 1.
 
 ### 3. Cross-cluster service calls have no transport
 
@@ -133,14 +137,43 @@ now have nothing carrying them:
 
 The per-chart READMEs were inherited verbatim and only spot-corrected. Roughly 40 of them still
 narrate ambient mesh, waypoints, Step CA, `*.home.arpa` LAN hostnames or Longhorn. Highest
-mismatch, in order: the six `alarmify/*` READMEs, `zitadel`, `argocd`, `cloudflared`, `harbor`,
-`cilium`, `tempo`. Treat their *rationale* as history, not as a description of this repo.
+mismatch, in order: the six `alarmify/*` READMEs, `zitadel`, `argocd`, `harbor`, `cilium`,
+`tempo`. Treat their *rationale* as history, not as a description of this repo.
+
+`zitadel` still serves `zitadel.home.arpa` from a dedicated LAN route
+(`templates/httproute-zitadel-lan.yaml`) on the internal Gateway. That hostname does not resolve
+on GCP — the route is kept because the Terraform provider path depends on it, but it is inert
+until the name resolves.
 
 ### 5. Still bare-metal-shaped
 
-`cilium` (GKE has Dataplane V2), `cloudflared` and `tailscale` were kept at your request but are
-Proxmox-era choices. `helmcharts/cilium/values/local.yaml` and the `cloudflared` tunnel IDs still
-carry the Proxmox network identity.
+`cilium` (GKE has Dataplane V2) and `tailscale` were kept at your request but are Proxmox-era
+choices. `helmcharts/cilium/values/local.yaml` still carries the Proxmox network identity.
+
+---
+
+## TCPRoutes are gone
+
+GKE ships the Gateway API **standard channel**, which has no `TCPRoute` kind, and both
+GatewayClasses in use are L7 HTTP(S) load balancers. The four charts that templated a `TCPRoute`
+could not sync at all. They were converted along the only two lines that work:
+
+| Chart | Was | Now |
+|---|---|---|
+| `victoria-metrics` | TCPRoute `vminsert` | HTTPRoute → `vmauth`, internal Gateway |
+| `tempo` | TCPRoute `tempo-otlp` → 4317 | HTTPRoute → **4318**, internal Gateway |
+| `cloudnative-pg` | TCPRoute `postgres` | internal L4 `LoadBalancer` via CNPG `managed.services` |
+| `nats` | TCPRoute `nats` | internal L4 `LoadBalancer` Service |
+
+Two consequences worth knowing:
+
+- **Tempo moved from OTLP/gRPC to OTLP/HTTP.** gRPC over an HTTPRoute needs
+  `appProtocol: kubernetes.io/h2c` on the backend Service, which the upstream chart does not
+  expose. **Senders must use an OTLP HTTP exporter**, not the gRPC one.
+- **PostgreSQL and NATS were not converted to HTTPRoutes, deliberately.** Neither wire protocol
+  is HTTP; a route would be Accepted and then blackhole every connection. Both are gated behind
+  `externalExposure.enabled` and each costs one internal LB IP. In-cluster clients are unaffected
+  — they resolve the ClusterIP Services directly and never traversed the Gateway.
 
 ---
 

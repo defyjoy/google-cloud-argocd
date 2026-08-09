@@ -57,14 +57,14 @@ fi
 echo "✓ GatewayClasses available:"
 echo "$classes" | sed 's|^|   - |'
 
-# TCPRoute is experimental-channel only. GKE ships the standard channel, so four charts in this
-# repo (cloudnative-pg, victoria-metrics, nats, tempo) cannot have their TCPRoute served here.
+# TCPRoute is experimental-channel only and GKE ships the standard channel. No chart in this repo
+# templates a TCPRoute any more (removed 2026-08-09), so its absence is purely informational —
+# victoria-metrics and tempo became HTTPRoutes, cloudnative-pg and nats internal L4
+# LoadBalancer Services. This check stays as a guard against one being reintroduced.
 if kubectl get crd/tcproutes.gateway.networking.k8s.io &>/dev/null; then
   echo "ℹ️  TCPRoute CRD present (non-GKE / experimental channel)."
 else
-  echo "⚠️  No TCPRoute CRD — expected on GKE (standard channel only)."
-  echo "   cloudnative-pg, victoria-metrics, nats and tempo template a TCPRoute and will fail to"
-  echo "   sync until it is disabled per-cluster. See helmcharts/gke-gateway/README.md."
+  echo "ℹ️  No TCPRoute CRD — expected on GKE (standard channel only), and nothing needs one."
 fi
 
 echo "✅ GKE Gateway API preflight passed"

@@ -3,21 +3,22 @@ set -euo pipefail
 
 # Seeds bootstrap secrets into Vault by exec'ing the `vault` CLI inside a Vault pod.
 #
-# Why exec instead of talking to Vault over the network: the secrets seeded here are
-# the ones the cluster needs before it has a working ingress path. cloudflared cannot
-# serve vault.jrclabs.xyz until it has its tunnel credentials, and those credentials
-# live in Vault — so the public hostname is unusable at exactly the moment we need it.
-# `kubectl exec` reaches Vault over the API server, which needs no tunnel, no Gateway
-# and no HTTPRoute.
+# Why exec instead of talking to Vault over the network: this runs before the cluster has
+# a working north-south path, so vault.jrclabs.xyz is not yet resolvable or routable.
+# `kubectl exec` reaches Vault over the API server, which needs no Gateway and no HTTPRoute.
 #
-# The pod has no access to ~/.cloudflared, so the files are streamed in over the exec
-# stdin as a single JSON object and consumed by `vault kv put <path> -`. Nothing is
-# written to the pod filesystem and no secret is ever passed as a command argument
-# (argv is visible to anything that can read /proc inside the container).
+# The secret is streamed in over the exec stdin and consumed by `vault kv put <path> -`.
+# Nothing is written to the pod filesystem and no secret is ever passed as a command
+# argument (argv is visible to anything that can read /proc inside the container).
 #
-# Seeds two paths:
-#   <mount>/alarmify/<env>/cloudflared/credentials  cert + credentials  -> cloudflared
+# Seeds one path:
 #   <mount>/alarmify/<env>/cloudflared/token        token               -> external-dns
+#
+# The `cloudflared/` path segment is historical. The Cloudflare TUNNEL was removed (north-south
+# traffic now goes through the GKE Gateways in helmcharts/gke-gateway), but external-dns still
+# manages the jrclabs.xyz zone through the Cloudflare DNS API and reads its token from here.
+# Renaming the path would require rewriting helmcharts/external-dns/values/*.yaml and
+# re-seeding both clusters' Vaults, so it is deliberately left alone.
 
 VAULT_NAMESPACE="${VAULT_NAMESPACE:?}"
 VAULT_CLUSTER_PREFIX="${VAULT_CLUSTER_PREFIX:?}"
@@ -25,9 +26,6 @@ VAULT_REPLICAS="${VAULT_REPLICAS:?}"
 VAULT_KV_MOUNT="${VAULT_KV_MOUNT:-kv}"
 VAULT_ENV="${VAULT_ENV:-local}"
 VAULT_INIT_FILE="${VAULT_INIT_FILE:-hashicorp-vault-init.json}"
-
-CLOUDFLARED_DIR="${CLOUDFLARED_DIR:-$HOME/.cloudflared}"
-CLOUDFLARED_CERT_FILE="${CLOUDFLARED_CERT_FILE:-$CLOUDFLARED_DIR/cert.pem}"
 
 # Tasks run from BOOTSTRAP_STATE_DIR, so the repo root is derived from this script's
 # own location rather than $PWD. This file lives in scripts/vault/, hence ../.. — keep
@@ -42,7 +40,7 @@ command -v jq >/dev/null 2>&1 || die "jq is required"
 
 # Reads one key out of a dotenv file. Deliberately NOT `source`: .env is hand-edited,
 # and sourcing it would execute whatever is in there and export every other key into
-# this script's environment, where it could shadow a VAULT_*/CLOUDFLARED_* var above.
+# this script's environment, where it could shadow a VAULT_* var above.
 dotenv_get() {
   local file="$1" key="$2" line value
   [ -f "$file" ] || return 0
@@ -63,13 +61,9 @@ dotenv_get() {
 # is the management cluster. There is no prod; an alarmify/prod/... path resolves to
 # nothing and fails the whole ExternalSecret.
 case "$VAULT_ENV" in
-  local) DEFAULT_TUNNEL_ID="9da192fd-9481-44a4-a379-f205b66549b7" ;;  # tunnel "management"
-  dev)   DEFAULT_TUNNEL_ID="64478596-9fd7-4d58-a792-ae3b95d3ea98" ;;  # tunnel "dev"
-  *)     die "VAULT_ENV must be 'local' (management cluster) or 'dev' — got '$VAULT_ENV'" ;;
+  local|dev) ;;
+  *) die "VAULT_ENV must be 'local' (management cluster) or 'dev' — got '$VAULT_ENV'" ;;
 esac
-
-CLOUDFLARED_TUNNEL_ID="${CLOUDFLARED_TUNNEL_ID:-$DEFAULT_TUNNEL_ID}"
-CLOUDFLARED_CREDENTIALS_FILE="${CLOUDFLARED_CREDENTIALS_FILE:-$CLOUDFLARED_DIR/$CLOUDFLARED_TUNNEL_ID.json}"
 
 echo "🔐 Provisioning Vault secrets for env '$VAULT_ENV' (mount '$VAULT_KV_MOUNT')"
 
@@ -193,61 +187,6 @@ else
   printf '%s\n' "$VAULT_TOKEN" | vault_exec secrets enable -path="$VAULT_KV_MOUNT" kv-v2
 fi
 
-# ---------------------------------------------------------------------------
-# cloudflared tunnel credentials
-# ---------------------------------------------------------------------------
-CF_PATH="${VAULT_KV_MOUNT}/alarmify/${VAULT_ENV}/cloudflared/credentials"
-
-echo "📄 Reading tunnel credentials from the workstation:"
-echo "   cert:        $CLOUDFLARED_CERT_FILE"
-echo "   credentials: $CLOUDFLARED_CREDENTIALS_FILE"
-
-[ -s "$CLOUDFLARED_CERT_FILE" ] || die "$CLOUDFLARED_CERT_FILE missing or empty — run 'cloudflared tunnel login'"
-[ -s "$CLOUDFLARED_CREDENTIALS_FILE" ] || die "$CLOUDFLARED_CREDENTIALS_FILE missing or empty.
-   Tunnel '$CLOUDFLARED_TUNNEL_ID' has no credentials file on this machine. Do NOT run
-   'cloudflared tunnel create' to make one — that mints a NEW tunnel with a new ID and
-   every *.jrclabs.xyz CNAME would need repointing."
-
-grep -q -- "-----BEGIN" "$CLOUDFLARED_CERT_FILE" || die "$CLOUDFLARED_CERT_FILE does not look like a PEM"
-
-# cloudflared takes its tunnel identity from credentials.json, NOT from the chart's
-# tunnelConfig.name. Seeding one cluster's credentials under another cluster's path
-# puts both clusters' pods on one tunnel; Cloudflare then load-balances hostnames
-# across connectors in the wrong cluster and they 404 with an empty body while every
-# pod still looks healthy. That cost a day on 2026-07-30 — hence this check.
-file_tunnel_id=$(jq -r '.TunnelID // empty' "$CLOUDFLARED_CREDENTIALS_FILE") \
-  || die "$CLOUDFLARED_CREDENTIALS_FILE is not valid JSON"
-[ -n "$file_tunnel_id" ] || die "$CLOUDFLARED_CREDENTIALS_FILE has no TunnelID field"
-[ "$file_tunnel_id" = "$CLOUDFLARED_TUNNEL_ID" ] || die "tunnel ID mismatch — refusing to write.
-   env '$VAULT_ENV' expects $CLOUDFLARED_TUNNEL_ID
-   but $CLOUDFLARED_CREDENTIALS_FILE contains $file_tunnel_id"
-
-for field in AccountTag TunnelSecret; do
-  jq -e --arg f "$field" '.[$f] // empty | length > 0' "$CLOUDFLARED_CREDENTIALS_FILE" >/dev/null \
-    || die "$CLOUDFLARED_CREDENTIALS_FILE has no $field"
-done
-echo "✅ credentials.json is for tunnel $file_tunnel_id (correct for env '$VAULT_ENV')"
-
-# Field names are load-bearing: the ExternalSecret in helmcharts/cloudflared reads
-# properties `cert` and `credentials` via spec.data[], and ESO fails the WHOLE
-# ExternalSecret if either is missing.
-echo "✍️  Writing $CF_PATH ..."
-{
-  printf '%s\n' "$VAULT_TOKEN"
-  jq -n \
-    --rawfile cert "$CLOUDFLARED_CERT_FILE" \
-    --rawfile credentials "$CLOUDFLARED_CREDENTIALS_FILE" \
-    '{cert: $cert, credentials: $credentials}'
-} | vault_exec kv put "$CF_PATH" - >/dev/null
-
-# Read back rather than trusting the write: a silently mis-parsed stdin payload would
-# otherwise surface days later as a cloudflared CrashLoop.
-readback=$(printf '%s\n' "$VAULT_TOKEN" | vault_exec kv get -format=json "$CF_PATH")
-echo "$readback" | jq -e '.data.data | has("cert") and has("credentials")' >/dev/null \
-  || die "read-back of $CF_PATH is missing cert and/or credentials"
-echo "$readback" | jq -r '"✅ wrote version \(.data.metadata.version) — cert \(.data.data.cert|length) bytes, credentials \(.data.data.credentials|length) bytes"'
-
-# ---------------------------------------------------------------------------
 # Cloudflare API token (external-dns)
 # ---------------------------------------------------------------------------
 # Separate path from the tunnel credentials on purpose: helmcharts/external-dns reads a
@@ -273,6 +212,5 @@ echo ""
 echo "💡 Next steps:"
 echo "   1. task hashicorp-vault-create-secret     # vault-token for External Secrets Operator"
 echo "   2. kubectl get clustersecretstore vault-secretstore   # must report Ready=True"
-echo "   3. kubectl get externalsecret -A                      # cloudflared + external-dns must report SecretSynced"
-echo "   4. kubectl rollout restart deploy -n cloudflared"
-echo "   5. kubectl rollout restart deploy -n external-dns"
+echo "   3. kubectl get externalsecret -A                      # external-dns must report SecretSynced"
+echo "   4. kubectl rollout restart deploy -n external-dns"

@@ -10,3 +10,4 @@ vmcluster:
   vminsert:
     externalExposure:
       enabled: true
+      hostname: vminsert.jrclabs.xyz

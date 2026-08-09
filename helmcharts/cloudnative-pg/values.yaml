@@ -1,5 +1,8 @@
 enabled: true
 
+externalExposure:
+  enabled: true
+
 cloudnative-pg:
   podSecurityContext:
     runAsNonRoot: true
