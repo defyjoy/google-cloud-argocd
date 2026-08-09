@@ -9,20 +9,39 @@ set -euo pipefail
 # the whole stack forward to fix a CRD ordering problem just trades it for a secrets ordering
 # problem — and below cilium its pods cannot schedule at all.
 #
-# So the CRDs are installed imperatively here, exactly like the Gateway API ones, and the chart
-# stays where it is.
+# So the CRDs are installed imperatively here, and the chart stays where it is.
 #
-# Source is the VENDORED subchart, not the network: whatever CRD version Argo CD is about to
-# deploy is the version installed here, by construction.
+# Source is the SUBCHART, never a hand-picked URL: whatever CRD version Argo CD is about to
+# deploy is the version installed here, by construction. The subchart is normally already
+# vendored in charts/; if it is not (a fresh clone — .gitignore excludes charts/*.tgz) it is
+# fetched from the committed Chart.lock, which preserves that guarantee.
 
 : "${REPO_ROOT:?}"
 
-CHART_DIR="${REPO_ROOT}/helmcharts/kube-prometheus-stack/charts"
+PARENT_DIR="${REPO_ROOT}/helmcharts/kube-prometheus-stack"
+CHART_DIR="${PARENT_DIR}/charts"
 TGZ=$(ls "${CHART_DIR}"/kube-prometheus-stack-*.tgz 2>/dev/null | head -1)
 
+# .gitignore excludes helmcharts/**/charts/*.tgz, so a fresh clone has NO vendored subchart and
+# this script used to exit 1 here — aborting bootstrap before Argo CD was ever installed. Fetch
+# it instead.
+#
+# `dependency build`, not `update`: build resolves from the committed Chart.lock (78.5.0), so the
+# CRD version is pinned and reproducible. `update` would re-resolve the range and could pull a
+# newer chart than the one Argo CD is about to deploy — reintroducing the version skew this
+# script exists to avoid.
 if [[ -z "$TGZ" ]]; then
-  echo "❌ No vendored kube-prometheus-stack chart found in ${CHART_DIR}"
-  echo "   Run: helm dependency update ${REPO_ROOT}/helmcharts/kube-prometheus-stack"
+  echo "📦 No vendored kube-prometheus-stack chart in ${CHART_DIR} — fetching from Chart.lock..."
+  if ! helm dependency build "$PARENT_DIR"; then
+    echo "❌ helm dependency build failed for ${PARENT_DIR}"
+    echo "   Needs network access to https://prometheus-community.github.io/helm-charts"
+    exit 1
+  fi
+  TGZ=$(ls "${CHART_DIR}"/kube-prometheus-stack-*.tgz 2>/dev/null | head -1)
+fi
+
+if [[ -z "$TGZ" ]]; then
+  echo "❌ Still no kube-prometheus-stack chart in ${CHART_DIR} after dependency build"
   exit 1
 fi
 
