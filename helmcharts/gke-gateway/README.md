@@ -35,6 +35,60 @@ points at the cause. The two are mutually exclusive. The `gateway-api-crds` labe
 out in `helmcharts/argocd/templates/cluster/local-cluster-secret.yaml` for exactly this reason;
 the chart itself is kept for any non-GKE cluster registered later.
 
+## Prerequisite: proxy-only subnet, and the firewall rule people forget
+
+`gke-l7-rilb` is a *regional internal* Application Load Balancer. It needs a proxy-only subnet in
+the same region, which `yeti-hub-vpc` does not have:
+
+```bash
+gcloud compute networks subnets create yeti-hub-proxy-only-us-central1 \
+  --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE \
+  --region=us-central1 --network=yeti-hub-vpc --range=10.42.0.0/23
+```
+
+`10.42.0.0/23` was chosen because it overlaps nothing already allocated: nodes `10.40.0.0/20`,
+mgmt `10.41.0.0/28`, pods `10.50.0.0/16`, control plane `172.16.1.0/28`.
+
+**Then the part that silently breaks everything.** The Envoy proxies send data-plane traffic to
+the backends *from the proxy-only subnet*, not from Google's health-check ranges. `yeti-hub-vpc`
+allows `10.50.0.0/16`, `10.41.0.0/28`, `10.40.0.0/20`, `10.60.0.0/20` and `10.11.0.0/28` inbound
+(`yeti-hub-allow-internal`), and the health-check ranges separately
+(`yeti-hub-allow-health-checks`) — but **not** `10.42.0.0/23`:
+
+```bash
+gcloud compute firewall-rules create yeti-hub-allow-proxy-only \
+  --network=yeti-hub-vpc --direction=INGRESS --action=ALLOW \
+  --source-ranges=10.42.0.0/23 --rules=tcp
+```
+
+Without it the Gateway provisions, health checks pass, and every request is dropped — a failure
+mode that looks like a broken backend rather than a missing firewall rule.
+
+## Prerequisite: a DNS record, because the route is host-matched
+
+`helmcharts/argocd/values.yaml` pins `hostnames: [argocd.jrclabs.xyz]`. An HTTPRoute with
+`hostnames` set does **not** match a request to the load balancer's raw IP — browsing to the VIP
+returns 404, not the Argo CD UI. DNS is load-bearing here, not cosmetic.
+
+`jrclabs.xyz` is the only zone that exists in this project, and its private view is already
+attached to `yeti-hub-vpc` and `yeti-dev-vpc`, so VPN clients resolve it with no extra wiring.
+The rest of the repo still says `workquark.org` in ~110 files; that domain has **no zone in this
+project** and does not resolve here — treat those references as Proxmox-era, the same as the
+`*.home.arpa` names.
+
+Once the Gateway reports an address:
+
+```bash
+kubectl -n gateway-system get gateway gateway -o jsonpath='{.status.addresses[0].value}'
+
+gcloud dns record-sets create argocd.jrclabs.xyz. \
+  --zone=jrclabs-xyz-private --type=A --ttl=300 --rrdatas=<VIP>
+```
+
+Reachability is over the `yeti-hub-vpn` OpenVPN server (`10.41.0.2`, udp/1194). It sits in
+`10.41.0.0/28`, which `yeti-hub-allow-internal` already permits, so the VPN→Gateway leg needs no
+further firewall work.
+
 ## Configuration
 
 ### `gatewayClassName` has no base default, on purpose

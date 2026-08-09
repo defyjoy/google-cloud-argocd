@@ -17,10 +17,11 @@ devCluster:
 
 argo-cd:
   global:
-    domain: argocd.workquark.org
+    domain: argocd.jrclabs.xyz
 
   configs:
     cm:
+      url: http://argocd.jrclabs.xyz
       application.resourceTrackingMethod: annotation+label
       resource.exclusions: |
         - apiGroups: ["operator.victoriametrics.com"]
@@ -60,7 +61,7 @@ argo-cd:
           namespace: gateway-system
           sectionName: http
       hostnames:
-        - argocd.workquark.org
+        - argocd.jrclabs.xyz
       rules:
         - matches:
             - path:
