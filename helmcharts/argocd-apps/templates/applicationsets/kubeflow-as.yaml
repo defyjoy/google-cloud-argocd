@@ -45,7 +45,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         # Use kustomization manifests for Kubeflow
         path: manifests/kubeflow

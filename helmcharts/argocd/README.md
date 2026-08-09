@@ -93,7 +93,7 @@ After the initial bootstrap, configure ArgoCD to manage itself from Git. This is
    Project: default
    
    Source:
-     Repository URL: git@github.com:defyjoy/argocd-google-cloud.git
+     Repository URL: git@github.com:defyjoy/google-cloud-argocd.git
      Revision: HEAD
      Path: helmcharts/argocd
    
@@ -112,7 +112,7 @@ After the initial bootstrap, configure ArgoCD to manage itself from Git. This is
 
 ```bash
 argocd app create argocd \
-  --repo git@github.com:defyjoy/argocd-google-cloud.git \
+  --repo git@github.com:defyjoy/google-cloud-argocd.git \
   --path helmcharts/argocd \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace argocd \
@@ -138,7 +138,7 @@ spec:
   project: default
   
   source:
-    repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+    repoURL: git@github.com:defyjoy/google-cloud-argocd.git
     targetRevision: HEAD
     path: helmcharts/argocd
     helm:
@@ -381,7 +381,7 @@ argocd app sync argocd
 helm upgrade argocd . -n argocd
 # or
 # install with the repository config directly with private key and repo
-helm upgrade --install argocd . -n argocd --create-namespace --set-file argo-cd.configs.repositories.defyjoy-argocd.sshPrivateKey="$HOME/.ssh/github" --set argo-cd.configs.repositories.defyjoy-argocd.url='git@github.com:defyjoy/argocd-google-cloud.git'
+helm upgrade --install argocd . -n argocd --create-namespace --set-file argo-cd.configs.repositories.defyjoy-argocd.sshPrivateKey="$HOME/.ssh/github" --set argo-cd.configs.repositories.defyjoy-argocd.url='git@github.com:defyjoy/google-cloud-argocd.git'
 
 
 ```
@@ -453,7 +453,7 @@ argo-cd:
   configs:
     repositories:
       defyjoy-argocd:
-        url: git@github.com:defyjoy/argocd-google-cloud.git
+        url: git@github.com:defyjoy/google-cloud-argocd.git
         sshPrivateKey: |
           -----BEGIN OPENSSH PRIVATE KEY-----
           ...
@@ -469,7 +469,7 @@ Put only the URL in `values.yaml` under `argo-cd.configs.repositories.<repoKey>`
 ```bash
 helm upgrade --install argocd . -n argocd --create-namespace \
   --set-file argo-cd.configs.repositories.defyjoy-argocd.sshPrivateKey="$HOME/.ssh/id_rsa" \
-  --set argo-cd.configs.repositories.defyjoy-argocd.url='git@github.com:defyjoy/argocd-google-cloud.git'
+  --set argo-cd.configs.repositories.defyjoy-argocd.url='git@github.com:defyjoy/google-cloud-argocd.git'
 ```
 
 Or keep both entries in a small local override file (still not committed) and use `-f values.local.yaml` where that file contains the `sshPrivateKey` block.
@@ -486,7 +486,7 @@ Argo CD discovers Secrets labeled `argocd.argoproj.io/secret-type: repository`. 
 kubectl create secret generic argocd-repo-defyjoy-argocd \
   -n argocd \
   --from-literal=type=git \
-  --from-literal=url=git@github.com:defyjoy/argocd-google-cloud.git \
+  --from-literal=url=git@github.com:defyjoy/google-cloud-argocd.git \
   --from-file=sshPrivateKey=$HOME/.ssh/id_rsa
 kubectl label secret argocd-repo-defyjoy-argocd -n argocd \
   argocd.argoproj.io/secret-type=repository --overwrite
@@ -563,7 +563,7 @@ Deploy `argocd-apps` to manage all other applications:
 
 ```bash
 argocd app create argocd-apps \
-  --repo git@github.com:defyjoy/argocd-google-cloud.git \
+  --repo git@github.com:defyjoy/google-cloud-argocd.git \
   --path helmcharts/argocd-apps \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace argocd \

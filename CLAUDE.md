@@ -1,4 +1,4 @@
-# argocd-google-cloud repo — Claude instructions
+# google-cloud-argocd repo — Claude instructions
 
 > Forked from `defyjoy/ArgoCD` (Proxmox/Talos) on 2026-08-09 with the Istio, Step CA and
 > Longhorn charts removed. **Read the "Known gaps" section of README.md before assuming any

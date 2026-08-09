@@ -291,7 +291,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -337,7 +337,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -388,7 +388,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -452,7 +452,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -508,7 +508,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -562,7 +562,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -615,7 +615,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -666,7 +666,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -697,7 +697,7 @@ spec:
   goTemplate: true
   generators:
     - git:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         revision: HEAD
         files:
           - path: "cluster-configs/*/ingress-nginx.json"
@@ -709,7 +709,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -774,7 +774,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -829,7 +829,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -873,7 +873,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+        repoURL: git@github.com:defyjoy/google-cloud-argocd.git
         targetRevision: HEAD
         path: helmcharts/ingress-nginx
         helm:
@@ -1121,7 +1121,7 @@ Store cluster configs in Git files:
 ```yaml
 generators:
   - git:
-      repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+      repoURL: git@github.com:defyjoy/google-cloud-argocd.git
       revision: HEAD
       files:
         - path: "cluster-configs/*/ingress-nginx.json"

@@ -19,7 +19,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+    repoURL: git@github.com:defyjoy/google-cloud-argocd.git
     targetRevision: HEAD
     path: helmcharts/kube-prometheus-stack
     helm:

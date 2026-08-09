@@ -1,4 +1,4 @@
-# argocd-google-cloud
+# google-cloud-argocd
 
 GitOps repository for the **Google Cloud** clusters — an Argo CD app-of-apps managing 46 Helm
 charts across two clusters (`management` and `dev`).
@@ -87,7 +87,7 @@ Alongside them, in the charts that were kept:
 - **Gateway `parentRef`s** re-pointed from `istio-gateway`/`istio-system` to
   **`gateway`/`gateway-system`** across all 15 HTTPRoute and 4 TCPRoute charts, plus the
   `cloudflared` tunnel backends.
-- **`repoURL`** re-pointed to `git@github.com:defyjoy/argocd-google-cloud.git` (89 occurrences).
+- **`repoURL`** re-pointed to `git@github.com:defyjoy/google-cloud-argocd.git` (89 occurrences).
 - **CoreDNS ConfigMap** (`helmcharts/argocd/templates/kube-system/core-dns-cofigmap.yaml`)
   rewritten: the hardcoded `*.home.arpa` → `192.168.x.x` LAN records are now driven by
   `corednsKubeSystem.hosts`, and it is **disabled by default** (GKE runs kube-dns, not CoreDNS).

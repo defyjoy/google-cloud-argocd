@@ -27,7 +27,7 @@ spec:
   # Source repository configuration
   source:
     # Git repository URL (update this to your fork/repo)
-    repoURL: git@github.com:defyjoy/argocd-google-cloud.git
+    repoURL: git@github.com:defyjoy/google-cloud-argocd.git
     
     # Branch/tag/commit to sync
     targetRevision: HEAD
