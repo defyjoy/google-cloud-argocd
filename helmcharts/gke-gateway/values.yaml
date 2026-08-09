@@ -4,23 +4,32 @@ namespace:
   create: true
   name: gateway-system
 
-gateway:
-  name: gateway
-  gatewayClassName: ""
-  addressName: ""
-  allowedRoutesFrom: All
-
-  http:
+gateways:
+  internal:
     enabled: true
-    port: 80
+    name: gateway
+    gatewayClassName: ""
+    addressName: ""
+    allowedRoutesFrom: All
+    http:
+      enabled: true
+      port: 80
+    https:
+      enabled: false
+      port: 443
+      certificateRefs: []
+  external:
+    enabled: true
+    name: gateway-external
+    gatewayClassName: ""
+    addressName: ""
+    allowedRoutesFrom: All
+    http:
+      enabled: true
+      port: 80
+    https:
+      enabled: false
+      port: 443
+      certificateRefs: []
 
-  https:
-    enabled: false
-    port: 443
-    certificateRefs: []
-
-healthCheckPolicy:
-  enabled: false
-  targetService: ""
-  port: 8080
-  requestPath: /healthz
+healthCheckPolicies: []

@@ -1,52 +1,72 @@
 {{- /*
-  The single Gateway every HTTPRoute in this repo names as its parentRef
-  (gateway-system/gateway). gatewayClassName is deliberately unset in values.yaml so a cluster
-  that forgot its overlay fails loudly at render time rather than silently provisioning the wrong
-  class of load balancer.
+  Every Gateway this cluster serves, rendered from the `gateways` MAP in values.yaml.
 
-  Only the `http` and `https` sectionNames are served. The `postgres`, `nats`, `vminsert` and
-  `tempo-otlp` sectionNames that four TCPRoutes in this repo reference CANNOT be added: no GKE
-  GatewayClass implements TCPRoute. See README.md -> "What this Gateway does not serve".
+  A map, not a list, on purpose: Helm replaces lists wholesale but deep-merges maps, so
+  values/<cluster>.yaml can set nothing but `gatewayClassName` per entry without restating the
+  listeners (CLAUDE.md -> "Helm replaces lists wholesale").
+
+  Two entries ship by default:
+
+    internal -> name `gateway`          -> gke-l7-rilb
+                The parent EVERY HTTPRoute in this repo already names. It keeps the bare name
+                `gateway` precisely so none of those ~17 routes have to change.
+
+    external -> name `gateway-external` -> gke-l7-regional-external-managed
+                Public. Nothing attaches to it until a route opts in by setting
+                parentRefs[].name: gateway-external.
+
+  gatewayClassName has no base default and this template calls `fail` on it, so a cluster that
+  forgot its overlay stops loudly instead of provisioning the wrong class of load balancer —
+  which for the external entry would mean publishing a plaintext service.
+
+  The `postgres`, `nats`, `vminsert` and `tempo-otlp` sectionNames that four TCPRoutes reference
+  are absent from BOTH gateways: no GKE GatewayClass implements TCPRoute. See README.md.
 */ -}}
-{{- if not .Values.gateway.gatewayClassName }}
-{{- fail "gateway.gatewayClassName is required — set it in helmcharts/gke-gateway/values/<cluster>.yaml (see README.md)" }}
+{{- range $key, $gw := .Values.gateways }}
+{{- if $gw.enabled }}
+{{- if not $gw.gatewayClassName }}
+{{- fail (printf "gateways.%s.gatewayClassName is required — set it in helmcharts/gke-gateway/values/<cluster>.yaml (see README.md)" $key) }}
 {{- end }}
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: {{ .Values.gateway.name }}
-  namespace: {{ .Values.namespace.name }}
+  name: {{ $gw.name }}
+  namespace: {{ $.Values.namespace.name }}
   labels:
     app.kubernetes.io/name: gke-gateway
     app.kubernetes.io/component: gateway
     app.kubernetes.io/managed-by: Helm
+    gke-gateway/scope: {{ $key }}
 spec:
-  gatewayClassName: {{ .Values.gateway.gatewayClassName }}
-  {{- with .Values.gateway.addressName }}
+  gatewayClassName: {{ $gw.gatewayClassName }}
+  {{- with $gw.addressName }}
   addresses:
     - type: NamedAddress
       value: {{ . | quote }}
   {{- end }}
   listeners:
-    {{- if .Values.gateway.http.enabled }}
+    {{- if $gw.http.enabled }}
     - name: http
       protocol: HTTP
-      port: {{ .Values.gateway.http.port }}
+      port: {{ $gw.http.port }}
       allowedRoutes:
         namespaces:
-          from: {{ .Values.gateway.allowedRoutesFrom }}
+          from: {{ $gw.allowedRoutesFrom }}
     {{- end }}
-    {{- if .Values.gateway.https.enabled }}
+    {{- if $gw.https.enabled }}
     - name: https
       protocol: HTTPS
-      port: {{ .Values.gateway.https.port }}
+      port: {{ $gw.https.port }}
       tls:
         mode: Terminate
         certificateRefs:
-          {{- range .Values.gateway.https.certificateRefs }}
+          {{- range $gw.https.certificateRefs }}
           - {{ toYaml . | nindent 12 | trim }}
           {{- end }}
       allowedRoutes:
         namespaces:
-          from: {{ .Values.gateway.allowedRoutesFrom }}
+          from: {{ $gw.allowedRoutesFrom }}
     {{- end }}
+{{- end }}
+{{- end }}

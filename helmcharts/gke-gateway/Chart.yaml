@@ -1,6 +1,6 @@
 apiVersion: v2
 name: gke-gateway
-description: The cluster's single Gateway (gateway-system/gateway), backed by a GKE-managed Application Load Balancer — the parent every HTTPRoute in this repo attaches to
+description: The cluster's Gateways in gateway-system — an internal one named `gateway` (the parent every HTTPRoute in this repo attaches to) and a public `gateway-external`, both backed by GKE-managed Application Load Balancers
 type: application
 version: 0.1.0
 appVersion: "1.35"

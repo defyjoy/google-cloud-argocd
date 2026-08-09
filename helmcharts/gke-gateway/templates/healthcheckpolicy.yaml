@@ -1,14 +1,27 @@
 {{- /*
-  Optional override for the load balancer health check. GKE normally derives the health check from
-  the backend Pod's readiness probe, which is correct for argocd-server, so this is OFF by default.
-  Turn it on only when a backend's readiness probe and its LB-facing health endpoint differ.
+  Optional overrides for the load balancer health check. GKE normally derives the health check
+  from the backend Pod's readiness probe, which is correct for argocd-server, so this list is
+  EMPTY by default.
+
+  A HealthCheckPolicy targets a Service, not a Gateway, so these are deliberately NOT nested
+  under `gateways` — a backend reached through both gateways needs one policy, not two.
+
+  Add one only when a backend's readiness probe and its LB-facing health endpoint differ:
+
+    healthCheckPolicies:
+      - name: argocd-server
+        targetService: argocd-server
+        namespace: argocd
+        port: 8080
+        requestPath: /healthz
 */ -}}
-{{- if .Values.healthCheckPolicy.enabled }}
+{{- range .Values.healthCheckPolicies }}
+---
 apiVersion: networking.gke.io/v1
 kind: HealthCheckPolicy
 metadata:
-  name: {{ .Values.gateway.name }}-healthcheck
-  namespace: {{ .Values.namespace.name }}
+  name: {{ .name }}-healthcheck
+  namespace: {{ .namespace | default $.Values.namespace.name }}
   labels:
     app.kubernetes.io/name: gke-gateway
     app.kubernetes.io/component: healthcheck
@@ -18,10 +31,10 @@ spec:
     config:
       type: HTTP
       httpHealthCheck:
-        port: {{ .Values.healthCheckPolicy.port }}
-        requestPath: {{ .Values.healthCheckPolicy.requestPath | quote }}
+        port: {{ .port }}
+        requestPath: {{ .requestPath | quote }}
   targetRef:
     group: ""
     kind: Service
-    name: {{ .Values.healthCheckPolicy.targetService }}
+    name: {{ .targetService }}
 {{- end }}

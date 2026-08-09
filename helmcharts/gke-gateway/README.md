@@ -1,10 +1,34 @@
 # gke-gateway
 
-Creates **`gateway-system/gateway`** — the single `Gateway` that every `HTTPRoute` in this repo
-names as its `parentRef` — backed by a **GKE-managed Application Load Balancer**.
+Creates the cluster's `Gateway` resources in **`gateway-system`**, each backed by a
+**GKE-managed Application Load Balancer**.
 
 This chart replaces the removed `istio/istio-gateway`. Until it exists, every route in the repo
 dangles and no north-south traffic flows (README.md → Known gaps #1).
+
+| values key | Gateway name | GatewayClass | Reach |
+|---|---|---|---|
+| `gateways.internal` | **`gateway`** | `gke-l7-rilb` | VPC-internal, via the `yeti-hub-vpn` OpenVPN server |
+| `gateways.external` | **`gateway-external`** | `gke-l7-regional-external-managed` | Public internet |
+
+**`internal` deliberately holds the bare name `gateway`.** Every `HTTPRoute` and `TCPRoute` in
+this repo already hard-codes `parentRefs[].name: gateway`, so keeping that name on the internal
+Gateway means none of those ~17 routes had to change, and the default posture for anything in
+this repo is *not* internet-facing. A route opts in to the public path explicitly:
+
+```yaml
+parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-external
+    namespace: gateway-system
+    sectionName: http
+```
+
+**Nothing attaches to `gateway-external` today.** It provisions a public load balancer with no
+routes behind it, which serves 404 to the internet and exposes nothing. Read
+[`https` is off until a certificate exists](#https-is-off-until-a-certificate-exists) before you
+attach the first route — until a certificate is wired, that path is **plaintext HTTP**.
 
 - Upstream: no subchart. Plain manifests against `gateway.networking.k8s.io/v1`, implemented by
   GKE's built-in Gateway controller.
@@ -37,8 +61,11 @@ the chart itself is kept for any non-GKE cluster registered later.
 
 ## Prerequisite: proxy-only subnet, and the firewall rule people forget
 
-`gke-l7-rilb` is a *regional internal* Application Load Balancer. It needs a proxy-only subnet in
-the same region, which `yeti-hub-vpc` does not have:
+Both Gateways are **regional Envoy-based** load balancers — `gke-l7-rilb` and
+`gke-l7-regional-external-managed` — so both draw from a proxy-only subnet in `us-central1`.
+`REGIONAL_MANAGED_PROXY` is *"Reserved for Regional Envoy-based Load Balancing"*, not
+internal-specific, and GCP allows only one `ACTIVE` per region per network, so **one subnet
+serves both**. `yeti-hub-vpc` has none:
 
 ```bash
 gcloud compute networks subnets create yeti-hub-proxy-only-us-central1 \
@@ -95,26 +122,59 @@ further firewall work.
 
 ## Configuration
 
-### `gatewayClassName` has no base default, on purpose
+### `gateways` is a map, not a list
 
 ```yaml
-gateway:
-  gatewayClassName: ""
+gateways:
+  internal:
+    name: gateway
+    gatewayClassName: ""
+  external:
+    name: gateway-external
+    gatewayClassName: ""
 ```
 
-`values.yaml` leaves it empty and `templates/gateway.yaml` calls `fail` when it is still empty at
-render time. A cluster that forgot its overlay stops loudly instead of quietly provisioning the
-wrong class of load balancer — the same reasoning as `victoria-metrics`' empty `externalLabels`.
-
-### `gke-l7-rilb` — internal, not public
+Helm **replaces lists wholesale but deep-merges maps** (CLAUDE.md → *"Helm replaces lists
+wholesale"*). Because `gateways` is a map, `values/<cluster>.yaml` sets nothing but the class
+name per entry and inherits every listener from the base:
 
 ```yaml
 # values/local.yaml
-gateway:
-  gatewayClassName: gke-l7-rilb
+gateways:
+  internal:
+    gatewayClassName: gke-l7-rilb
+  external:
+    gatewayClassName: gke-l7-regional-external-managed
 ```
 
-A **regional internal** Application Load Balancer. Chosen over the external classes because:
+Had this been a list, each cluster would have to restate both Gateways in full, and a
+half-updated overlay would silently drop one.
+
+Add a third Gateway by adding a key. Drop one for a given cluster with `enabled: false` rather
+than deleting the key, so the base keeps documenting what exists.
+
+### `gatewayClassName` has no base default, on purpose
+
+`values.yaml` leaves every `gatewayClassName` empty and `templates/gateway.yaml` calls `fail`
+when one is still empty at render time — naming the offending key:
+
+```
+gateways.external.gatewayClassName is required — set it in
+helmcharts/gke-gateway/values/<cluster>.yaml (see README.md)
+```
+
+A cluster that forgot its overlay stops loudly instead of quietly provisioning the wrong class of
+load balancer — the same reasoning as `victoria-metrics`' empty `externalLabels`. The stakes are
+higher on the `external` entry than the internal one: a wrong default there is a public IP in
+front of something that was meant to be private.
+
+Consequence: `helm template helmcharts/gke-gateway` on its own **errors**. That is intended —
+pass the overlay, exactly as `cilium` and `cloudflared` require.
+
+### Why `internal` is `gke-l7-rilb`
+
+A **regional internal** Application Load Balancer, and the default parent for everything in this
+repo, because:
 
 - **Argo CD runs with `server.insecure: true`** (`helmcharts/argocd/values.yaml`,
   `argo-cd.configs.params`). It serves the admin UI over plain HTTP. On a public IP with no TLS
@@ -123,13 +183,22 @@ A **regional internal** Application Load Balancer. Chosen over the external clas
 - **It preserves the Cloudflare-edge design already encoded in every route in this repo.**
   `helmcharts/vault/templates/httproute.yaml` says it outright: *"TLS is terminated at the
   Cloudflare edge, not here"*, and every route attaches only to the `http` listener.
-  `cloudflared` is the public entry point; the Gateway is the internal fan-out behind it.
+  `cloudflared` is the public entry point; the internal Gateway is the fan-out behind it.
 
-The alternative is `gke-l7-global-external-managed` — a public IP, and the only class here that
-needs **no** proxy-only subnet. Do not switch to it until the `https` listener has a real
-certificate (see below); otherwise it publishes a plaintext Argo CD admin UI.
+### Why `external` is `gke-l7-regional-external-managed`
 
-`gke-l7-rilb` **requires a proxy-only subnet** in the region, and this project has none:
+Regional rather than global (`gke-l7-global-external-managed`) so both Gateways are Envoy-based
+regional load balancers in `us-central1` and **share one proxy-only subnet** — see below. The
+global class needs no proxy-only subnet at all, so it is the cheaper choice if you ever want
+exactly one public Gateway and no internal one; with both, regional keeps the footprint to a
+single shared subnet and a single firewall rule.
+
+### Both Gateways share one proxy-only subnet
+
+`REGIONAL_MANAGED_PROXY` is documented as *"Reserved for Regional Envoy-based Load Balancing"* —
+it is **not** internal-specific, and GCP permits only one `ACTIVE` such subnet per region per
+network. So `gke-l7-rilb` and `gke-l7-regional-external-managed` both draw from the same one, and
+this project has none:
 
 ```bash
 gcloud compute networks subnets create yeti-hub-proxy-only-us-central1 \
@@ -137,15 +206,21 @@ gcloud compute networks subnets create yeti-hub-proxy-only-us-central1 \
   --region=us-central1 --network=yeti-hub-vpc --range=10.42.0.0/23
 ```
 
+One subnet means **one** firewall rule covers both Gateways' data plane — the
+`yeti-hub-allow-proxy-only` rule above is not per-Gateway.
+
 ### `allowedRoutesFrom: All`
 
 ```yaml
-gateway:
-  allowedRoutesFrom: All
+gateways:
+  internal:
+    allowedRoutesFrom: All
+  external:
+    allowedRoutesFrom: All
 ```
 
-Routes live in their own namespaces (`argocd`, `vault`, `harbor`, …) and attach across the
-namespace boundary to this Gateway. That is governed by the **Gateway's**
+Set per Gateway. Routes live in their own namespaces (`argocd`, `vault`, `harbor`, …) and attach
+across the namespace boundary. That is governed by the **Gateway's**
 `listeners[].allowedRoutes.namespaces.from`, not by a `ReferenceGrant` — ReferenceGrant only
 covers cross-namespace `backendRefs` and `certificateRefs`, neither of which this repo uses. So
 no ReferenceGrant is shipped here; adding one would do nothing.
@@ -153,12 +228,16 @@ no ReferenceGrant is shipped here; adding one would do nothing.
 ### `addressName` — static IP, and why cloudflared needs it
 
 ```yaml
-gateway:
-  addressName: ""
+gateways:
+  internal:
+    addressName: ""
+  external:
+    addressName: ""
 ```
 
-Empty means GKE assigns an ephemeral address. Reserve one and name it here when you want a
-stable target:
+Per Gateway, and they need **different** addresses — an internal one from the VPC for
+`gateway`, an external one for `gateway-external`. Empty means GKE assigns an ephemeral address.
+Reserve and name one when you want a stable target:
 
 ```bash
 gcloud compute addresses create argocd-gateway-ip \
@@ -182,10 +261,15 @@ chart does not make it worse, but it does not fix it either.)
 ### `https` is off until a certificate exists
 
 ```yaml
-gateway:
-  https:
-    enabled: false
-    certificateRefs: []
+gateways:
+  internal:
+    https:
+      enabled: false
+      certificateRefs: []
+  external:
+    https:
+      enabled: false
+      certificateRefs: []
 ```
 
 There is no certificate infrastructure in this repo: `helmcharts/cert-manager` renders **no**
@@ -195,33 +279,54 @@ shipping a Gateway that never programs. Enable it by supplying either a cert-man
 Secret or a Certificate Manager map:
 
 ```yaml
-gateway:
-  https:
-    enabled: true
-    certificateRefs:
-      - group: ""
-        kind: Secret
-        name: jrclabs-tls
+gateways:
+  external:
+    https:
+      enabled: true
+      certificateRefs:
+        - group: ""
+          kind: Secret
+          name: jrclabs-tls
 ```
 
 `helmcharts/argocd`'s HTTPRoute attaches only to `sectionName: http` for the same reason.
 
-### `healthCheckPolicy` is off by default
+**This is the gate on using `gateway-external` for anything real.** Attaching a route to it while
+`https.enabled: false` publishes that service to the internet over plaintext HTTP. The internal
+Gateway tolerates HTTP because the VPC and the VPN are the boundary; the external one has no such
+boundary.
+
+### `healthCheckPolicies` is an empty list
 
 ```yaml
-healthCheckPolicy:
-  enabled: false
+healthCheckPolicies: []
 ```
 
 GKE derives the backend health check from the Pod's readiness probe, which is correct for
-`argocd-server` (`/healthz` on 8080). Turn this on only for a backend whose readiness probe and
-LB-facing health endpoint genuinely differ.
+`argocd-server` (`/healthz` on 8080). Add an entry only for a backend whose readiness probe and
+LB-facing health endpoint genuinely differ:
 
-## What this Gateway does not serve
+```yaml
+healthCheckPolicies:
+  - name: argocd-server
+    targetService: argocd-server
+    namespace: argocd
+    port: 8080
+    requestPath: /healthz
+```
 
-**No GKE GatewayClass implements `TCPRoute`.** GKE ships the Gateway API **standard** channel,
-which has no `TCPRoute` type at all. Four charts template one, against `sectionName`s this
-Gateway therefore cannot offer (`postgres`, `nats`, `vminsert`, `tempo-otlp`):
+A `HealthCheckPolicy` targets a **Service**, not a Gateway, so these are deliberately not nested
+under `gateways` — a backend reached through both Gateways needs one policy, not two. `namespace`
+defaults to `gateway-system`, but a policy must live in the *target Service's* namespace, so set
+it explicitly.
+
+## What neither Gateway serves
+
+**No GKE GatewayClass implements `TCPRoute`** — not `gke-l7-rilb`, not
+`gke-l7-regional-external-managed`, not any other. GKE ships the Gateway API **standard** channel,
+which has no `TCPRoute` type at all, so adding the external Gateway does nothing for these. Four
+charts template one, against `sectionName`s neither Gateway can offer (`postgres`, `nats`,
+`vminsert`, `tempo-otlp`):
 
 | Chart | Route | sectionName |
 |---|---|---|
@@ -249,4 +354,4 @@ argocd.argoproj.io/sync-wave: "-27"
 ```
 
 Behind `argocd` (−30) and `argocd-apps` (−29), ahead of every chart that templates a route, so the
-Gateway exists before anything tries to attach to it.
+Gateways exist before anything tries to attach to them.

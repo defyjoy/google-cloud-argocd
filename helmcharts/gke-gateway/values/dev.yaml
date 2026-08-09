@@ -1,3 +1,7 @@
-gateway:
-  gatewayClassName: gke-l7-rilb
-  addressName: ""
+gateways:
+  internal:
+    gatewayClassName: gke-l7-rilb
+    addressName: ""
+  external:
+    gatewayClassName: gke-l7-regional-external-managed
+    addressName: ""
