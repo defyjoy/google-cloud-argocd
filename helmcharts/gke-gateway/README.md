@@ -180,10 +180,10 @@ repo, because:
   `argo-cd.configs.params`). It serves the admin UI over plain HTTP. On a public IP with no TLS
   listener that puts admin credentials on the wire in the clear. An internal LB confines it to
   the VPC, reachable over the existing VPN (`yeti-hub-vpn-ip`, `yeti-hub-vpn-allow-clients`).
-- **It preserves the Cloudflare-edge design already encoded in every route in this repo.**
-  `helmcharts/vault/templates/httproute.yaml` says it outright: *"TLS is terminated at the
-  Cloudflare edge, not here"*, and every route attaches only to the `http` listener.
-  `cloudflared` is the public entry point; the internal Gateway is the fan-out behind it.
+- **Every route in this repo attaches only to an `http` listener.** There is no `https` listener
+  on either Gateway yet (see "`https` is off until a certificate exists"), so anything published
+  is plaintext at the load balancer and depends on Cloudflare's proxy for edge TLS. Keeping the
+  default internal means that exposure is opt-in per route rather than the fallback.
 
 ### Why `external` is `gke-l7-regional-external-managed`
 
@@ -225,7 +225,7 @@ across the namespace boundary. That is governed by the **Gateway's**
 covers cross-namespace `backendRefs` and `certificateRefs`, neither of which this repo uses. So
 no ReferenceGrant is shipped here; adding one would do nothing.
 
-### `addressName` — static IP, and why cloudflared needs it
+### `addressName` — static IP for a stable DNS target
 
 ```yaml
 gateways:
@@ -245,18 +245,11 @@ gcloud compute addresses create argocd-gateway-ip \
   --purpose=GCE_ENDPOINT --project=yeti-504903
 ```
 
-This matters more than it looks. `helmcharts/cloudflared/values/local.yaml` currently points its
-tunnel at an **in-cluster Service DNS name**:
-
-```yaml
-service: http://gateway.gateway-system.svc.cluster.local:80
-```
-
-A GKE-managed Gateway is a Google Cloud load balancer, **not** an in-cluster proxy Deployment — it
-creates no `gateway` Service, so that hostname does not resolve. The removed Istio gateway did
-create one, which is where the value came from. Retarget cloudflared at the reserved internal IP
-once this chart is deployed. (This is already broken today, since no Gateway exists at all; this
-chart does not make it worse, but it does not fix it either.)
+Public DNS does not depend on this being set: `helmcharts/external-dns` (source
+`gateway-httproute`) reads each Gateway's address directly and publishes it for every hostname
+routed there — `zitadel`, `harbor`, `plane`, `vault` on `gateway-external`. Pinning `addressName`
+only matters if you need that address to survive a Gateway being deleted and recreated; the
+Cloudflare Tunnel that used to need a fixed target for its own config was removed 2026-08-09.
 
 ### `https` is off until a certificate exists
 

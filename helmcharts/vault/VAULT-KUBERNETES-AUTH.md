@@ -84,10 +84,13 @@ vault write auth/kubernetes/role/vault-agent-injector \
 ### 7. Create Test Secrets
 
 ```bash
-vault kv put secret/cloudflared/credentials \
-  cert="-----BEGIN CERTIFICATE-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END CERTIFICATE-----" \
-  credentials='{"AccountTag":"test-account","TunnelSecret":"test-secret","TunnelID":"test-tunnel-id"}'
+vault kv put kv/alarmify/local/cloudflared/token \
+  token="test-cloudflare-api-token"
 ```
+
+(The `cloudflared/` path segment is historical — it's the Cloudflare DNS API token external-dns
+reads, not tunnel credentials; the Cloudflare Tunnel itself was removed. See
+`helmcharts/vault/README.md`.)
 
 ### 8. Test Authentication
 

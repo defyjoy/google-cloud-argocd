@@ -420,10 +420,12 @@ cloudflareApiToken:
   vaultPath: alarmify/local/cloudflared/token
 ```
 
-It shares the `cloudflared/` prefix with the tunnel credentials but is a **separate object**,
-so `spec.data[]` hands external-dns only the API token and never the tunnel's `cert` — and
-rotating the token does not touch the tunnel. Seed it with `task provision-vault-secrets`
-(see [Installation](#1-store-cloudflare-api-token-in-vault)).
+The `cloudflared/` path segment is historical: it originally sat alongside the Cloudflare Tunnel's
+own credentials, seeded by the same task. The tunnel (`helmcharts/cloudflared`) was removed
+2026-08-09 — public traffic now goes through `helmcharts/gke-gateway`'s `gateway-external` — but
+this token path was left as-is rather than rewriting `vaultPath` here and re-seeding both
+clusters' Vaults for a rename with no functional benefit. Seed it with `task
+provision-vault-secrets` (see [Installation](#1-store-cloudflare-api-token-in-vault)).
 
 > 🔁 This is the dependency that makes [`external-secrets`](../external-secrets/README.md)'s
 > Vault address matter — external-dns needs Vault to get this token, so Vault must not be

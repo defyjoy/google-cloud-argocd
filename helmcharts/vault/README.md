@@ -165,41 +165,36 @@ task provision-vault-secrets              # env local == management cluster
 task provision-vault-secrets VAULT_ENV=dev
 ```
 
-Some secrets have to exist in Vault before the cluster can reach Vault over the network.
-cloudflared cannot serve `vault.jrclabs.xyz` until it has its tunnel credentials, and
-those credentials live in Vault — so the public endpoint is unusable at exactly the moment
-it is needed. dev makes this sharper: dev's `ClusterSecretStore` points at the *public*
-`https://vault.jrclabs.xyz`, so a dev cluster whose tunnel credential is wrong can never
-self-heal.
+One secret has to exist in Vault before the cluster can reach Vault over the network:
+external-dns cannot publish `vault.jrclabs.xyz` until it has a Cloudflare API token, and that
+token lives in Vault — so the public endpoint is unusable at exactly the moment it is needed.
+dev makes this sharper: dev's `ClusterSecretStore` points at the *public*
+`https://vault.jrclabs.xyz`, so a dev cluster whose token is wrong can never self-heal.
 
 `scripts/vault/provision-vault-secrets.sh` breaks the cycle by running the `vault` CLI inside the
-Vault pod over `kubectl exec` — that path goes through the API server and needs no tunnel,
-Gateway or HTTPRoute. It writes to the active Raft node; a standby would only redirect.
+Vault pod over `kubectl exec` — that path goes through the API server and needs no Gateway or
+HTTPRoute. It writes to the active Raft node; a standby would only redirect.
 
-The pod has no access to `~/.cloudflared`, so the two files are streamed in over the exec
-stdin as a single JSON object and consumed by `vault kv put <path> -`:
+The token is streamed in over the exec stdin and consumed by `vault kv put <path> -`:
 
 ```bash
 { printf '%s\n' "$VAULT_TOKEN"
-  jq -n --rawfile cert "$CERT" --rawfile credentials "$CREDS" \
-        '{cert: $cert, credentials: $credentials}'
-} | kubectl exec -i -n vault local-vault-0 -- sh -c 'IFS= read -r VAULT_TOKEN; export VAULT_TOKEN; exec vault "$@"' sh kv put "$CF_PATH" -
+  jq -n --arg token "$CLOUDFLARE_API_TOKEN" '{token: $token}'
+} | kubectl exec -i -n vault local-vault-0 -- sh -c 'IFS= read -r VAULT_TOKEN; export VAULT_TOKEN; exec vault "$@"' sh kv put "$CF_TOKEN_PATH" -
 ```
 
-Nothing is written to the pod filesystem, and neither the root token nor the secret bodies
-appear in `argv` — the token arrives as the first stdin line, the payload as the rest.
+Nothing is written to the pod filesystem, and neither the root token nor the secret body
+appears in `argv` — the token arrives as the first stdin line, the payload as the rest.
 
-The field names `cert` and `credentials` are load-bearing: `helmcharts/cloudflared`'s
-ExternalSecret reads them as `spec.data[].remoteRef.property`, and ESO fails the *whole*
-ExternalSecret if either is missing.
+The field name `token` is load-bearing: `helmcharts/external-dns`'s ExternalSecret reads it as
+`spec.data[].remoteRef.property`, and ESO fails the *whole* ExternalSecret if it is missing.
 
-The script refuses to write when `credentials.json`'s `TunnelID` does not match the tunnel
-expected for that env (`local` → `9da192fd-…`, `dev` → `64478596-…`). cloudflared takes its
-identity from `credentials.json`, **not** from the chart's `tunnelConfig.name`, so seeding
-one cluster's credentials under another cluster's path silently puts both clusters' pods on
-one tunnel — Cloudflare then load-balances hostnames onto connectors in the wrong cluster,
-which answer with an empty-body 404 while every pod still reports healthy. That is exactly
-what happened on 2026-07-30.
+> The `cloudflared/` path segment (`kv/alarmify/<env>/cloudflared/token`) is historical. It
+> originally sat alongside the Cloudflare Tunnel's own credentials, seeded by this same script.
+> The tunnel (`helmcharts/cloudflared`) was removed 2026-08-09 — public traffic now goes through
+> `helmcharts/gke-gateway`'s `gateway-external` — but the path was left as-is rather than
+> rewriting `helmcharts/external-dns/values/*.yaml` and re-seeding both clusters' Vaults for a
+> rename with no functional benefit.
 
 ## Configuration
 
