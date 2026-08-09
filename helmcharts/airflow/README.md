@@ -31,7 +31,7 @@ airflow:
     ingress:
       enabled: true
       hosts:
-        - host: airflow.workquark.org
+        - host: airflow.jrclabs.xyz
 ```
 
 ### Executor Options
@@ -52,7 +52,7 @@ airflow:
       enabled: true
       ingressClassName: nginx
       hosts:
-        - host: airflow.workquark.org
+        - host: airflow.jrclabs.xyz
           paths:
             - path: /
               pathType: Prefix

@@ -2,13 +2,13 @@ enabled: true
 
 vault:
   httproute:
-    hostname: vault.workquark.org
+    hostname: vault.jrclabs.xyz
     path: /
     gatewayName: gateway
     gatewayNamespace: gateway-system
     gatewayListener: http
     externalDns:
-      hostname: vault.workquark.org
+      hostname: vault.jrclabs.xyz
       class: cloudflare
 
   global:

@@ -253,7 +253,7 @@ cloudflared:
 
 #### This Chart's Live Ingress Rules
 
-`values.yaml` routes `*.workquark.org` to `istio-gateway`'s auto-provisioned Service (the
+`values.yaml` routes `*.jrclabs.xyz` to `istio-gateway`'s auto-provisioned Service (the
 data plane) rather than to individual app Services — `alarmify-ui`/harbor/vault/zitadel's
 HTTPRoutes all moved together onto this Gateway during the Envoy Gateway → Istio Gateway
 migration (see `alarmify-docs/docs/istio/index.md`). The Service name follows the pattern
@@ -264,7 +264,7 @@ the `helmcharts/istio/istio-gateway` Gateway object; find the current one with:
 kubectl get svc -n istio-system -l gateway.networking.k8s.io/gateway-name=istio-gateway
 ```
 
-`zitadel.workquark.org` has its own rule ahead of the wildcard (ingress rules are
+`zitadel.jrclabs.xyz` has its own rule ahead of the wildcard (ingress rules are
 first-match-wins) so it can set `originRequest.http2Origin: true` — there is no
 `http2://` URL scheme; the `service` field only accepts `http://`/`https://`/`tcp://`/
 `unix://`/`ssh://` (confirmed via `cloudflared tunnel ingress validate`, which happily
@@ -276,11 +276,11 @@ hostname, 200 status with an empty body, since cloudflared didn't recognize the 
 
 ```yaml
 ingress:
-  - hostname: "zitadel.workquark.org"
+  - hostname: "zitadel.jrclabs.xyz"
     service: http://istio-gateway-istio.istio-system.svc.cluster.local:80
     originRequest:
       http2Origin: true
-  - hostname: "*.workquark.org"
+  - hostname: "*.jrclabs.xyz"
     service: http://istio-gateway-istio.istio-system.svc.cluster.local:80
   - service: http_status:404
 ```
@@ -298,7 +298,7 @@ Each environment points `externalSecrets.vaultPath` at its own Vault path and it
 Cloudflare Tunnel resource/credentials — dev and local don't share (or fight over) the
 prod tunnel. Cloudflare load-balances a single tunnel's traffic across whichever connected
 replica it picks, without host-pinning, so sharing one tunnel across clusters risks (e.g.)
-a `harbor.workquark.org` request landing on the wrong cluster's replica and 404ing even
+a `harbor.jrclabs.xyz` request landing on the wrong cluster's replica and 404ing even
 though the intended cluster's replica is healthy. A dedicated tunnel per environment means
 Cloudflare's DNS layer — not tunnel-connector selection — deterministically decides which
 cluster serves which hostname.
@@ -315,7 +315,7 @@ and fails the whole ExternalSecret.
 
 Seed either path with `task provision-vault-secrets` (`VAULT_ENV=dev` for dev) rather than by
 hand — it runs `vault kv put` inside the Vault pod, so it works before cloudflared is up and
-`vault.workquark.org` resolves, and it refuses to write credentials whose `TunnelID` belongs
+`vault.jrclabs.xyz` resolves, and it refuses to write credentials whose `TunnelID` belongs
 to the other cluster. See `helmcharts/vault/README.md`.
 
 The right file is selected per-cluster by
@@ -431,9 +431,9 @@ kubectl exec -it deployment/cloudflared -- cloudflared tunnel info
 # values.yaml — no hostnames here, only the catch-all
 ```
 
-This file **used to carry a shared `*.workquark.org -> istio-gateway` rule**. Both clusters run
+This file **used to carry a shared `*.jrclabs.xyz -> istio-gateway` rule**. Both clusters run
 their own tunnel off this same chart (`local` → "management", `dev` → "dev"), so that wildcard
-made **both tunnels claim every `workquark.org` hostname**.
+made **both tunnels claim every `jrclabs.xyz` hostname**.
 
 A request landing on the tunnel whose cluster has no matching HTTPRoute got an **empty-body
 404** from that cluster's proxy instead of being served — and nothing in either cluster looked

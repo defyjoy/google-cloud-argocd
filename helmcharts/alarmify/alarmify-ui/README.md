@@ -2,7 +2,7 @@
 
 The Alarmify web front-end — a **Next.js standalone-build BFF**. It runs the Zitadel OIDC login
 flow, holds the session cookie, and proxies to the four backend APIs. The only `alarmify-*` app
-exposed on the **public internet** (`ui.workquark.org`).
+exposed on the **public internet** (`ui.jrclabs.xyz`).
 
 > 📌 **This chart carried its design notes as YAML comments.** They have all been moved here.
 > `values.yaml`, `values/dev.yaml` and `templates/*` are now comment-free; this README is the
@@ -15,11 +15,11 @@ exposed on the **public internet** (`ui.workquark.org`).
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-ui` (`version: 0.1.0`, `appVersion: v0.0.83`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-ui:v0.0.115` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-ui:v0.0.115` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` (Option D) |
 | 📛 Namespace | `alarmify-ui` |
 | 🚀 ArgoCD App | `dev-alarmify-ui` (`automated.prune` + `selfHeal: true`) |
-| 🌐 Hostname | **`ui.workquark.org`** — public, via the **dedicated dev Cloudflare Tunnel** |
+| 🌐 Hostname | **`ui.jrclabs.xyz`** — public, via the **dedicated dev Cloudflare Tunnel** |
 | 🔌 Ports | container **`3000`**, Service `80` |
 | 👤 Runs as | UID/GID **`1001`** (every other alarmify app uses `1000`) |
 | 🐘 Postgres | **none** |
@@ -53,7 +53,7 @@ exposed on the **public internet** (`ui.workquark.org`).
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-ui
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-ui
   tag: v0.0.115
   pullPolicy: IfNotPresent
 
@@ -197,7 +197,7 @@ annotations.
 
 The Proxmox repo shipped a `DestinationRule/{{ .Release.Name }}-keepalive` capping Envoy's
 upstream idle timeout below Node's 5s `keepAliveTimeout` default, to stop intermittent 502/503
-on `ui.workquark.org` from reused-but-already-closed upstream connections.
+on `ui.jrclabs.xyz` from reused-but-already-closed upstream connections.
 
 `DestinationRule` is an Istio CRD, so it went with the mesh. **The underlying bug is not fixed** —
 it will resurface behind any proxy that pools upstream connections for longer than 5s. The
@@ -210,12 +210,12 @@ durable fix is app-side: `alarmify-ui`'s standalone `server.js` should set
 
 ```yaml
 auth:
-  appBaseUrl: "https://ui.workquark.org"
+  appBaseUrl: "https://ui.jrclabs.xyz"
 
 httproute:
-  hostname: ui.workquark.org
+  hostname: ui.jrclabs.xyz
   externalDns:
-    hostname: ui.workquark.org
+    hostname: ui.jrclabs.xyz
 ```
 
 Selected automatically for clusters labelled `environment: dev` (see
@@ -325,7 +325,7 @@ kubectl -n alarmify-ui get pods,externalsecret,secret,httproute,destinationrule
 kubectl -n alarmify-ui logs deploy/dev-alarmify-ui --tail=100
 
 # Public route end-to-end
-curl -sI https://ui.workquark.org | head -20
+curl -sI https://ui.jrclabs.xyz | head -20
 
 # The 502/503 signature the DestinationRule fixes — check Envoy's own counters
 kubectl -n alarmify-ui exec deploy/waypoint -c istio-proxy -- \
@@ -344,6 +344,6 @@ kubectl -n alarmify-ui get destinationrule dev-alarmify-ui-keepalive \
 - 🔐 [`RUNBOOK.md`](./RUNBOOK.md) — Vault secrets, tactical
 - 🗝️ [`../vault.md`](../vault.md) — Vault commands for **all** `alarmify-*` apps
 - 🚪 `helmcharts/istio/istio-gateway` — the parent `Gateway` (holds the external-dns `target`)
-- ☁️ `helmcharts/cloudflared` — the dedicated dev tunnel serving `ui.workquark.org`
+- ☁️ `helmcharts/cloudflared` — the dedicated dev tunnel serving `ui.jrclabs.xyz`
 - 🏗️ `alarmify-common-infra/terraform/zitadel` — seeds this app's Vault object
 - 📖 `defyjoy/alarmify-docs` — migration plans, Istio runbooks

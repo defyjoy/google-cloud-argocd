@@ -10,7 +10,7 @@ Two domains, one instance — see `https://github.com/Alarmify/alarmify-docs/blo
 for the hardening/rollout runbook.
 
 ```text
-Public ── https://zitadel.workquark.org ──▶ Cloudflare (edge TLS, WAF/Access;
+Public ── https://zitadel.jrclabs.xyz ──▶ Cloudflare (edge TLS, WAF/Access;
               │                              /system + /debug blocked at CF —
               │                              gateway pathGuards empty while TCP
               │                              listeners share istio-gateway)
@@ -33,13 +33,13 @@ LAN clients  ── cloudnative-pg.home.arpa:5432 ──▶ Istio Gateway (liste
 
 Zitadel decides **which instance** serves a request by matching the inbound host against the
 instance domains registered in its **database** — this is application state, not Helm config.
-Only `ExternalDomain` (`zitadel.workquark.org`) is registered, so a LAN request arriving as
+Only `ExternalDomain` (`zitadel.jrclabs.xyz`) is registered, so a LAN request arriving as
 `zitadel.home.arpa` was rejected even though DNS, the HTTPRoute and the stepca cert were all
 correct:
 
 ```text
 unable to set instance using origin &{zitadel.home.arpa https}
-(ExternalDomain is zitadel.workquark.org): Message=Instance not found
+(ExternalDomain is zitadel.jrclabs.xyz): Message=Instance not found
 ```
 
 `x-zitadel-instance-host` is first in Zitadel's `InstanceHostHeaders` precedence, so the
@@ -53,7 +53,7 @@ filters:
     requestHeaderModifier:
       set:
         - name: x-zitadel-instance-host
-          value: zitadel.workquark.org
+          value: zitadel.jrclabs.xyz
 ```
 
 Verify from a LAN client (the gateway's `http` listener, h2c — no TLS needed for the check):
@@ -61,7 +61,7 @@ Verify from a LAN client (the gateway's `http` listener, h2c — no TLS needed f
 ```bash
 # without the header → "Instance not found"; with it → the discovery document
 curl -s --http2-prior-knowledge -H 'Host: zitadel.home.arpa' \
-  -H 'x-zitadel-instance-host: zitadel.workquark.org' \
+  -H 'x-zitadel-instance-host: zitadel.jrclabs.xyz' \
   http://192.168.3.10/.well-known/openid-configuration
 ```
 
@@ -73,7 +73,7 @@ entirely — which is what Terraform's gRPC provider needs, since Cloudflare's e
 Tunnel *public hostname* is [not supported by Cloudflare](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/use-cases/grpc/).
 
 **Does not:** change the URLs Zitadel *emits*. The issuer, redirects and links still say
-`https://zitadel.workquark.org`, so browser login flows on the LAN hostname bounce to the public
+`https://zitadel.jrclabs.xyz`, so browser login flows on the LAN hostname bounce to the public
 domain. Making Zitadel emit `zitadel.home.arpa` requires **also** registering it as a *trusted*
 domain via the API and asserting `x-zitadel-public-host`; without the registration Zitadel rejects
 the request outright:
@@ -362,7 +362,7 @@ Two attachment points on the same HTTPRoute:
 
 | Listener | Hostname | Path |
 |---|---|---|
-| `http` | `zitadel.workquark.org` | public — cloudflared tunnel; external-dns creates the proxied CNAME |
+| `http` | `zitadel.jrclabs.xyz` | public — cloudflared tunnel; external-dns creates the proxied CNAME |
 | `https` | `zitadel.home.arpa` | LAN — stepca SAN cert (keep the name in `helmcharts/stepca` `edgeGatewayTls.dnsNames`) |
 
 The external-dns `target` annotation deliberately lives on the parent istio-gateway `Gateway`, not
@@ -371,7 +371,7 @@ here — external-dns reads it only from Gateway resources and silently ignores 
 
 ```yaml
 annotations:
-  external-dns.alpha.kubernetes.io/hostname: zitadel.workquark.org
+  external-dns.alpha.kubernetes.io/hostname: zitadel.jrclabs.xyz
   external-dns.alpha.kubernetes.io/class: cloudflare
 ```
 
@@ -382,10 +382,10 @@ login:
   gateway:
     httpRoute:
       hostnames:
-        - zitadel.workquark.org   # never zitadel.home.arpa
+        - zitadel.jrclabs.xyz   # never zitadel.home.arpa
 ```
 
-The login app's `CUSTOM_REQUEST_HEADERS` always asserts `ExternalDomain=zitadel.workquark.org` to
+The login app's `CUSTOM_REQUEST_HEADERS` always asserts `ExternalDomain=zitadel.jrclabs.xyz` to
 the core API. Served over `zitadel.home.arpa` that contradicts the real inbound Host, and Zitadel
 rejects it with `public domain ... not trusted`, breaking session lookup and `login_hint` for that
 page load. `zitadel.home.arpa` stays on the core route above for Terraform and break-glass access.
@@ -417,12 +417,12 @@ deny-all on the TCP listeners (2026-07-11). The intent was for Cloudflare to blo
 **Verified 2026-07-27: it does not.** These reach Zitadel through Cloudflare today:
 
 ```console
-$ curl -s -o /dev/null -w '%{http_code}\n' https://zitadel.workquark.org/debug/metrics
+$ curl -s -o /dev/null -w '%{http_code}\n' https://zitadel.jrclabs.xyz/debug/metrics
 200        # Prometheus metrics, publicly readable
-$ curl -s -o /dev/null -w '%{http_code}\n' https://zitadel.workquark.org/debug/ready
+$ curl -s -o /dev/null -w '%{http_code}\n' https://zitadel.jrclabs.xyz/debug/ready
 200
 $ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/json' -d '{}' \
-    https://zitadel.workquark.org/system/v1/instances/_search
+    https://zitadel.jrclabs.xyz/system/v1/instances/_search
 401        # auth-gated, but the endpoint is exposed
 ```
 
@@ -457,5 +457,5 @@ pseudo-header.
 No filters are needed on the public route — the inbound Host already *is* the registered
 instance domain.
 
-> 🔗 This is why [`kiali`](../kiali/README.md) must use `https://zitadel.workquark.org` as its
+> 🔗 This is why [`kiali`](../kiali/README.md) must use `https://zitadel.jrclabs.xyz` as its
 > `issuer_uri` rather than the LAN name.

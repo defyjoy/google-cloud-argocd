@@ -143,6 +143,7 @@ argo-cd:
         interval: 30s
 
   notifications:
+    argocdUrl: http://argocd.jrclabs.xyz
     metrics:
       enabled: true
       service:

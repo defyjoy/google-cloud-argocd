@@ -157,7 +157,7 @@ tunnel IDs). Keep it out of the base file.
 - **Omit the base default when a missing override should be loud.** `victoria-metrics` sets
   `externalLabels: {}` so unlabelled series are obvious rather than silently wrong.
 - **Helm replaces lists wholesale — it does not merge them.** Every environment must repeat any
-  catch-all entry. A shared `*.workquark.org` rule in `cloudflared` made both clusters' tunnels
+  catch-all entry. A shared `*.jrclabs.xyz` rule in `cloudflared` made both clusters' tunnels
   claim every hostname, producing empty-body 404s while both clusters looked healthy.
 
 ### ArgoCD is not `helm upgrade`

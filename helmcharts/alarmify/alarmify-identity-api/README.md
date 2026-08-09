@@ -14,7 +14,7 @@ the `auth-api` removal on 2026-07-07) and owns tenant provisioning against Postg
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-identity-api` (`version: 0.1.0`, `appVersion: v0.0.5`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-identity-api:v0.0.12` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-identity-api:v0.0.12` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` (Phase 5) |
 | 📛 Namespace | `alarmify-identity-api` |
 | 🚀 ArgoCD App | `dev-alarmify-identity-api` (`automated.prune` + `selfHeal: true`) |
@@ -45,7 +45,7 @@ the `auth-api` removal on 2026-07-07) and owns tenant provisioning against Postg
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-identity-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-identity-api
   tag: v0.0.12
   pullPolicy: IfNotPresent
 

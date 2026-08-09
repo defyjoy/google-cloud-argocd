@@ -1,5 +1,5 @@
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-identity-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-identity-api
   tag: v0.0.12
   pullPolicy: IfNotPresent
 

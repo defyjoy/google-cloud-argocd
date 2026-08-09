@@ -17,7 +17,7 @@
 > block and does not reference `alarmify/management/zitadel`.
 >
 > ⚠️ **Independent, possibly still open:** `ImagePullBackOff` on
-> `harbor.workquark.org/alarmify/alarmify-event-worker:v0.0.10`. Fixing Vault alone will **not**
+> `harbor.jrclabs.xyz/alarmify/alarmify-event-worker:v0.0.10`. Fixing Vault alone will **not**
 > bring the pod up — see [🖼️ Image pull](#️-image-pull-second-blocker). *(Unverified as of
 > 2026-08-01 — the robot creds at `kv/harbor/secret` no longer resolve, so Harbor returns 401.)*
 
@@ -45,7 +45,7 @@ Postgres object overrides `DB_*` on the app object.
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup     # sanity check
 
@@ -160,12 +160,12 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
 jq -e '.auths | keys' dockerconfig.json
-jq -r '.auths["harbor.workquark.org"].auth' dockerconfig.json | base64 -d   # -> user:token
+jq -r '.auths["harbor.jrclabs.xyz"].auth' dockerconfig.json | base64 -d   # -> user:token
 
 vault kv put kv/alarmify/dev/harbor .dockerconfigjson=@dockerconfig.json
 shred -u dockerconfig.json 2>/dev/null || rm -f dockerconfig.json
@@ -233,7 +233,7 @@ kubectl -n alarmify-event-worker exec deploy/dev-alarmify-event-worker -- env | 
 |---|---|---|
 | `SecretSyncedError` + `err: Secret does not exist` | The Vault object in `appVarsKeys[N]` is missing. `dataFrom[0]` = app object, `dataFrom[1]` = shared postgres. | Create it → [1️⃣](#1️⃣-create-the-app-object) / [2️⃣](#2️⃣-shared-postgres-credentials) |
 | `SecretSyncedError` + `permission denied` / `403` | Vault token in `external-secrets/vault-token` expired or lacks a policy on the path | Renew/replace the token Secret in ns `external-secrets` |
-| `SecretSyncedError` + connection refused / TLS error | dev reaches Vault over the **public** `https://vault.workquark.org` (no in-cluster Vault). Cloudflare/DNS hiccup takes it out. | Check the tunnel + `vault.workquark.org` resolution; this cross-cluster dependency is a known, accepted risk for dev |
+| `SecretSyncedError` + connection refused / TLS error | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` (no in-cluster Vault). Cloudflare/DNS hiccup takes it out. | Check the tunnel + `vault.jrclabs.xyz` resolution; this cross-cluster dependency is a known, accepted risk for dev |
 | Secret exists but pod still has old values | Env vars are injected at pod start | `kubectl rollout restart` |
 | Worker logs `Authorization Violation` | `NATS_PASSWORD` in Vault ≠ the account password in `helmcharts/nats` | Align both, then force-sync + restart |
 | Worker exits at startup complaining about `FilterSubject` | Live durable's filter ≠ `nats.subject`. **By design** — see README. | `nats consumer edit ALARMIFY_EVENTS_RAW alarmify-event-processor --filter "alarmify.events.raw.*"` |
@@ -250,7 +250,7 @@ are not the problem** here. Check the tag exists:
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 curl -su "$HARBOR_USER:$HARBOR_TOKEN" \
-  "https://harbor.workquark.org/api/v2.0/projects/alarmify/repositories/alarmify-event-worker/artifacts?page_size=20" \
+  "https://harbor.jrclabs.xyz/api/v2.0/projects/alarmify/repositories/alarmify-event-worker/artifacts?page_size=20" \
   | jq -r '.[].tags[]?.name'
 
 kubectl -n alarmify-event-worker describe pod -l app.kubernetes.io/name=alarmify-event-worker \
@@ -288,5 +288,5 @@ kubectl -n external-secrets logs -l app.kubernetes.io/name=external-secrets --ta
 - 📖 [`README.md`](./README.md) — chart design notes
 - 🗝️ [`../vault.md`](../vault.md) — every `alarmify-*` app's Vault objects
 - 🔑 `helmcharts/external-secrets/` — `ClusterSecretStore/vault-secretstore` (dev override →
-  `https://vault.workquark.org`)
+  `https://vault.jrclabs.xyz`)
 - 📨 `helmcharts/nats/` — JetStream bootstrap + NATS accounts

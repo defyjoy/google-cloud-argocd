@@ -48,7 +48,7 @@ here.
 n8n:
   main:
     count: 1
-    editorBaseUrl: "n8n.workquark.org"
+    editorBaseUrl: "n8n.jrclabs.xyz"
     forceToUseStatefulset: false
     persistence:
       enabled: true
@@ -114,7 +114,7 @@ n8n:
 | `service.type` | string | `"ClusterIP"` | Service type |
 | `service.port` | int | `5678` | Service port |
 | `ingress.enabled` | bool | `true` | Enable ingress |
-| `ingress.hosts[0].host` | string | `"n8n.workquark.org"` | Ingress host |
+| `ingress.hosts[0].host` | string | `"n8n.jrclabs.xyz"` | Ingress host |
 | `persistence.enabled` | bool | `true` | Enable persistence |
 | `persistence.storageClass` | string | `"standard-rwo"` | Storage class |
 | `persistence.size` | string | `"10Gi"` | Storage size |

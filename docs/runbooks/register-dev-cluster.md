@@ -98,7 +98,7 @@ CA cert — public, stored alongside the token only so one ExternalSecret can fe
 Run by a human with a Vault root/operator token — kept out of any automation/agent.
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login <root-or-operator-token>
 
 vault kv put kv/argocd/dev-cluster \

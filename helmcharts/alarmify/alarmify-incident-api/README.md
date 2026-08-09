@@ -14,7 +14,7 @@ Incident CRUD/query service for Alarmify. Reads and writes incidents in Postgres
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-incident-api` (`version: 0.1.0`, `appVersion: v0.0.15`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-incident-api:v0.0.20` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-incident-api:v0.0.20` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` (Phase 5) |
 | 📛 Namespace | `alarmify-incident-api` |
 | 🚀 ArgoCD App | `dev-alarmify-incident-api` (`automated.prune` + `selfHeal: true`) |
@@ -45,7 +45,7 @@ Incident CRUD/query service for Alarmify. Reads and writes incidents in Postgres
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-incident-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-incident-api
   tag: v0.0.20
   pullPolicy: IfNotPresent
 

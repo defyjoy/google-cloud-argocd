@@ -15,7 +15,7 @@ Postgres. No HTTP surface, no Service, no Route — it is a **pure worker**.
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-event-worker` (`version: 0.1.0`, `appVersion: v0.0.9`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-event-worker:v0.0.10` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-event-worker:v0.0.10` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` |
 | 📛 Namespace | `alarmify-event-worker` (created by the ApplicationSet) |
 | 🚀 ArgoCD App | `dev-alarmify-event-worker` (`automated.prune` + `selfHeal: true`) |
@@ -62,7 +62,7 @@ alarmify-ingest-api  ──publish──▶  NATS JetStream (dev-nats)
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-event-worker
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-event-worker
   tag: v0.0.10
   pullPolicy: IfNotPresent
 
@@ -340,7 +340,7 @@ generators:
 | # | Symptom | Root cause |
 |---|---|---|
 | 1️⃣ | `ExternalSecret/alarmify-event-worker-vars` → `SecretSyncedError`, `Ready=False` | ESO: `error processing spec.dataFrom[0].extract, err: Secret does not exist` — the Vault object **`kv/alarmify/dev/alarmify-event-worker` does not exist**. `Secret/alarmify-event-worker-vars` was therefore never created. |
-| 2️⃣ | Pod in `ImagePullBackOff` for ~3d21h (24 785 back-offs) | `harbor.workquark.org/alarmify/alarmify-event-worker:v0.0.10` cannot be pulled. Note `Chart.yaml` declares `appVersion: v0.0.9` while `values.yaml` pins `v0.0.10` — verify the tag actually exists in Harbor. |
+| 2️⃣ | Pod in `ImagePullBackOff` for ~3d21h (24 785 back-offs) | `harbor.jrclabs.xyz/alarmify/alarmify-event-worker:v0.0.10` cannot be pulled. Note `Chart.yaml` declares `appVersion: v0.0.9` while `values.yaml` pins `v0.0.10` — verify the tag actually exists in Harbor. |
 
 ✅ Healthy in the same namespace: the `waypoint` pod (1/1), `Secret/alarmify-event-worker-registry`
 (harbor ES syncing fine), and dev's NATS — `ALARMIFY_EVENTS_RAW` exists with subject

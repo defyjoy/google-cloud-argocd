@@ -8,12 +8,12 @@ metadata:
     app.kubernetes.io/name: vault
     app.kubernetes.io/component: ui
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: vault.workquark.org
+    external-dns.alpha.kubernetes.io/hostname: vault.jrclabs.xyz
     external-dns.alpha.kubernetes.io/class: cloudflare
     # target annotation lives on the parent Gateway, not here.
 spec:
   hostnames:
-    - vault.workquark.org
+    - vault.jrclabs.xyz
   # http listener only -- TLS is terminated at the Cloudflare edge, not here.
   parentRefs:
     - group: gateway.networking.k8s.io

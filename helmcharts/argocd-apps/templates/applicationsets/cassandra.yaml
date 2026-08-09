@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "cassandra.ingress.hosts[0].host"
-              value: {{ `"cassandra.{{name}}.workquark.org"` }}
+              value: {{ `"cassandra.{{name}}.jrclabs.xyz"` }}
             - name: "cassandra.ingress.tls[0].secretName"
               value: {{ `"cassandra-{{name}}-tls"` }}
             - name: "cassandra.ingress.tls[0].hosts[0]"
-              value: {{ `"cassandra.{{name}}.workquark.org"` }}
+              value: {{ `"cassandra.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: cassandra

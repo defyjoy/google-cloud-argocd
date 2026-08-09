@@ -2,7 +2,7 @@
 
 Staypingo admin api, deployed from Harbor.
 
-- Image: `harbor.workquark.org/staypingo/staypingo-admin-api:v0.0.2`
+- Image: `harbor.jrclabs.xyz/staypingo/staypingo-admin-api:v0.0.2`
 - Container port `8080`, Service port `80`
 
 ---
@@ -13,7 +13,7 @@ Staypingo admin api, deployed from Harbor.
 
 ```yaml
 image:
-  repository: harbor.workquark.org/staypingo/staypingo-admin-api
+  repository: harbor.jrclabs.xyz/staypingo/staypingo-admin-api
   tag: v0.0.2
   pullPolicy: IfNotPresent
 replicas: 1

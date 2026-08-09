@@ -16,7 +16,7 @@ keywords:
 
 maintainers:
   - name: DevOps Team
-    email: devops@workquark.org
+    email: devops@jrclabs.xyz
 
 dependencies:
   - name: tailscale-operator

@@ -39,7 +39,7 @@ superset:
     ingressClassName: nginx
     annotations: {}
     hosts:
-      - host: superset.workquark.org
+      - host: superset.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix

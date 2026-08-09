@@ -125,18 +125,18 @@ vaultClusterSecretStore:
 # values/dev.yaml — public hostname, accepted risk
 vaultClusterSecretStore:
   vault:
-    server: "https://vault.workquark.org"
+    server: "https://vault.jrclabs.xyz"
 ```
 
 **Management must never use the public hostname.** Vault runs in that same cluster, so it never
-needs to route out through Cloudflare at all. Pointing it at `vault.workquark.org` creates a
+needs to route out through Cloudflare at all. Pointing it at `vault.jrclabs.xyz` creates a
 **circular dependency**: external-dns and external-secrets need Vault to obtain their Cloudflare
 API token, but Vault would then be reachable *only through* Cloudflare's tunnel — so a single
 Cloudflare or DNS hiccup takes out Vault access cluster-wide with no independent path to
 recover it.
 
 > 💥 This was confirmed as the **actual root cause of the 2026-07-19 outage** that took down
-> `ui.workquark.org`, `harbor.workquark.org` and `zitadel.workquark.org`.
+> `ui.jrclabs.xyz`, `harbor.jrclabs.xyz` and `zitadel.jrclabs.xyz`.
 
 dev has no local Vault and therefore *must* use the public hostname. That cross-cluster
 dependency is a known, accepted risk **for dev only** — which is precisely why the two clusters

@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "glitchtip.ingress.hosts[0].host"
-              value: {{ `"glitchtip.{{name}}.workquark.org"` }}
+              value: {{ `"glitchtip.{{name}}.jrclabs.xyz"` }}
             - name: "glitchtip.ingress.tls[0].secretName"
               value: {{ `"glitchtip-{{name}}-tls"` }}
             - name: "glitchtip.ingress.tls[0].hosts[0]"
-              value: {{ `"glitchtip.{{name}}.workquark.org"` }}
+              value: {{ `"glitchtip.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: glitchtip

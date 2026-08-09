@@ -75,7 +75,7 @@ extract produced (including `NATS_PASSWORD`). 🚨 If you ever add a `data:` key
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup
 
@@ -172,7 +172,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
@@ -234,7 +234,7 @@ kubectl -n nats exec "$NATSBOX" -- \
 | `401`/`403` on every request | `ZITADEL_AUDIENCE` ≠ the `aud` the caller sends | Compare the token's `aud` against `ZITADEL_AUDIENCE` in `kv/alarmify/management/zitadel`. 🚫 Never reintroduce it in `values.yaml` — see the row below |
 | Vault Zitadel keys seem ignored | Someone reintroduced `auth.zitadelIssuer`/`auth.zitadelAudience` as chart values — they render as literal `env`, which Kubernetes ranks **above** `envFrom` | Delete the `auth.*` values *and* their `env` entries in `deployment.yaml`. This exact bug pinned the app to a dead project ID until 2026-08-01 |
 | Zitadel keys hold the *old* project ID | Reading the stale copies still in `kv/alarmify/dev/alarmify-ingest-api` rather than the `spec.data` values | `spec.data` wins, so the app is fine — but prune them → [1️⃣](#1️⃣-the-app-object) |
-| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.workquark.org` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
+| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
 | `ImagePullBackOff` | See below | |
 
 ### 🖼️ Image pull — the only blocker here
@@ -246,7 +246,7 @@ the problem**. containerd returns `NotFound` — the **tag is absent from Harbor
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 curl -su "$HARBOR_USER:$HARBOR_TOKEN" \
-  "https://harbor.workquark.org/api/v2.0/projects/alarmify/repositories/alarmify-ingest-api/artifacts?page_size=20" \
+  "https://harbor.jrclabs.xyz/api/v2.0/projects/alarmify/repositories/alarmify-ingest-api/artifacts?page_size=20" \
   | jq -r '.[].tags[]?.name'
 ```
 

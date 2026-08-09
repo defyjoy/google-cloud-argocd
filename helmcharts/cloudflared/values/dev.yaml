@@ -10,6 +10,6 @@ cloudflared:
     name: "dev"
 
   ingress:
-    - hostname: "ui.workquark.org"
+    - hostname: "ui.jrclabs.xyz"
       service: http://gateway.gateway-system.svc.cluster.local:80
     - service: http_status:404

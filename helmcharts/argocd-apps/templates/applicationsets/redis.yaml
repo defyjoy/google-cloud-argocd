@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "redis.ingress.hosts[0].host"
-              value: {{ `"redis.{{name}}.workquark.org"` }}
+              value: {{ `"redis.{{name}}.jrclabs.xyz"` }}
             - name: "redis.ingress.tls[0].secretName"
               value: {{ `"redis-{{name}}-tls"` }}
             - name: "redis.ingress.tls[0].hosts[0]"
-              value: {{ `"redis.{{name}}.workquark.org"` }}
+              value: {{ `"redis.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: redis

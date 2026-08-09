@@ -36,7 +36,7 @@ correct and ready the moment a grant exists.
 Grafana's built-in `generic_oauth` provider points at the public Zitadel
 issuer. A user hitting `https://grafana.home.arpa` gets a "Sign in with
 Zitadel" button; the browser completes the code flow against
-`zitadel.workquark.org` and lands back on the LAN hostname. Both hostnames
+`zitadel.jrclabs.xyz` and lands back on the LAN hostname. Both hostnames
 work in the same flow because the browser is on the LAN while the redirect
 target is LAN-only — only Grafana's own server-side token exchange leaves the
 cluster, and it goes to the public issuer.
@@ -172,9 +172,9 @@ grafana.ini:
     enabled: true
     name: Zitadel
     scopes: openid profile email offline_access
-    auth_url: https://zitadel.workquark.org/oauth/v2/authorize
-    token_url: https://zitadel.workquark.org/oauth/v2/token
-    api_url: https://zitadel.workquark.org/oidc/v1/userinfo
+    auth_url: https://zitadel.jrclabs.xyz/oauth/v2/authorize
+    token_url: https://zitadel.jrclabs.xyz/oauth/v2/token
+    api_url: https://zitadel.jrclabs.xyz/oidc/v1/userinfo
     use_pkce: true
     use_refresh_token: true
 ```
@@ -182,7 +182,7 @@ grafana.ini:
 ### Issuer host requirement
 
 Same constraint as [`OIDC.md`](./OIDC.md#issuer-host-requirement): the endpoints
-must be `zitadel.workquark.org`, the **public** domain, not `zitadel.home.arpa`.
+must be `zitadel.jrclabs.xyz`, the **public** domain, not `zitadel.home.arpa`.
 Zitadel derives a token's `iss` from the request host, and the public name is
 also the only one with a publicly trusted (Cloudflare edge) certificate — so
 Grafana needs no custom CA to complete the token exchange.

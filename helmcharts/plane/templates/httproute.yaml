@@ -16,7 +16,7 @@ metadata:
     app.kubernetes.io/part-of: plane
     app.kubernetes.io/managed-by: Helm
   annotations:
-    # Creates plane.workquark.org in the cloudflare zone; the tunnel target is read off the
+    # Creates plane.jrclabs.xyz in the cloudflare zone; the tunnel target is read off the
     # Gateway, not here.
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.httproute.externalDns.hostname | quote }}
     external-dns.alpha.kubernetes.io/class: {{ .Values.httproute.externalDns.class | quote }}

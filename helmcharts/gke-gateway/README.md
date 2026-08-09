@@ -72,9 +72,13 @@ returns 404, not the Argo CD UI. DNS is load-bearing here, not cosmetic.
 
 `jrclabs.xyz` is the only zone that exists in this project, and its private view is already
 attached to `yeti-hub-vpc` and `yeti-dev-vpc`, so VPN clients resolve it with no extra wiring.
-The rest of the repo still says `workquark.org` in ~110 files; that domain has **no zone in this
-project** and does not resolve here — treat those references as Proxmox-era, the same as the
-`*.home.arpa` names.
+
+The repo previously used `workquark.org` throughout — a Proxmox-era domain with no zone in this
+project, which therefore resolved nowhere. All 286 references across 113 files were migrated to
+`jrclabs.xyz` on 2026-08-09. Two deliberate exceptions remain and are **not** domains: the
+Zitadel machine-user clientId `workquark-alertmanager` (renaming it breaks OIDC against a live
+identity provider) and the `github.com/workquark/ArgoCD` `runbook_url`s in
+`helmcharts/kube-prometheus-stack` (a GitHub org, and those links point at the pre-fork repo).
 
 Once the Gateway reports an address:
 
@@ -197,7 +201,7 @@ gateway:
     certificateRefs:
       - group: ""
         kind: Secret
-        name: workquark-tls
+        name: jrclabs-tls
 ```
 
 `helmcharts/argocd`'s HTTPRoute attaches only to `sectionName: http` for the same reason.

@@ -21,14 +21,14 @@ redis:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: redis.workquark.org
+      - host: redis.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: redis-tls
         hosts:
-          - redis.workquark.org
+          - redis.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

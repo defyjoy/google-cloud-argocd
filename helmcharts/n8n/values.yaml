@@ -15,7 +15,7 @@ n8n:
 
   main:
     count: 1
-    editorBaseUrl: "n8n.workquark.org"
+    editorBaseUrl: "n8n.jrclabs.xyz"
     forceToUseStatefulset: false
     persistence:
       enabled: true
@@ -231,7 +231,7 @@ n8n:
     className: "nginx"
     annotations: {}
     hosts:
-      - host: n8n.workquark.org
+      - host: n8n.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
@@ -350,7 +350,7 @@ n8n:
     ingress:
       enabled: true
       hosts:
-        - minio.workquark.org
+        - minio.jrclabs.xyz
       path: /
 
     users:

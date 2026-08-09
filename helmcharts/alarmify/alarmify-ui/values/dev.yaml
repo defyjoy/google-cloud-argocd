@@ -1,7 +1,7 @@
 auth:
-  appBaseUrl: "https://ui.workquark.org"
+  appBaseUrl: "https://ui.jrclabs.xyz"
 
 httproute:
-  hostname: ui.workquark.org
+  hostname: ui.jrclabs.xyz
   externalDns:
-    hostname: ui.workquark.org
+    hostname: ui.jrclabs.xyz

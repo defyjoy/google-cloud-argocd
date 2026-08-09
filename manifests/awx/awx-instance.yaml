@@ -17,7 +17,7 @@ spec:
   # Ingress configuration
   ingress_type: ingress
   ingress_class_name: nginx
-  hostname: awx.workquark.org
+  hostname: awx.jrclabs.xyz
   # TLS disabled as traffic passes through cloudflared tunnel (Cloudflare handles TLS)
   # ingress_tls_secret: awx-tls
   # Ingress annotations commented out as traffic passes through cloudflared tunnel
@@ -26,7 +26,7 @@ spec:
   #   nginx.ingress.kubernetes.io/ssl-redirect: "true"
   #   nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   #   nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-  #   external-dns.alpha.kubernetes.io/hostname: awx.workquark.org
+  #   external-dns.alpha.kubernetes.io/hostname: awx.jrclabs.xyz
   
   # Additional labels to propagate to child resources
   additional_labels:

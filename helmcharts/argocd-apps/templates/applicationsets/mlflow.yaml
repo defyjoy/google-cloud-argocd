@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "mlflow.ingress.hosts[0].host"
-              value: {{ `"mlflow.{{name}}.workquark.org"` }}
+              value: {{ `"mlflow.{{name}}.jrclabs.xyz"` }}
             - name: "mlflow.ingress.tls[0].secretName"
               value: {{ `"mlflow-{{name}}-tls"` }}
             - name: "mlflow.ingress.tls[0].hosts[0]"
-              value: {{ `"mlflow.{{name}}.workquark.org"` }}
+              value: {{ `"mlflow.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: mlflow

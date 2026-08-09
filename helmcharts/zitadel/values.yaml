@@ -19,7 +19,7 @@ zitadel:
     masterkey: "ChangeMeZitadelMasterkey32Char!!"
 
     configmapConfig:
-      ExternalDomain: zitadel.workquark.org
+      ExternalDomain: zitadel.jrclabs.xyz
       ExternalPort: 443
       ExternalSecure: true
       TLS:
@@ -95,7 +95,7 @@ zitadel:
     httpRoute:
       enabled: true
       annotations:
-        external-dns.alpha.kubernetes.io/hostname: zitadel.workquark.org
+        external-dns.alpha.kubernetes.io/hostname: zitadel.jrclabs.xyz
         external-dns.alpha.kubernetes.io/class: cloudflare
       parentRefs:
         - name: gateway
@@ -105,7 +105,7 @@ zitadel:
           namespace: gateway-system
           sectionName: https
       hostnames:
-        - zitadel.workquark.org
+        - zitadel.jrclabs.xyz
 
   login:
     enabled: true
@@ -129,7 +129,7 @@ zitadel:
             namespace: gateway-system
             sectionName: https
         hostnames:
-          - zitadel.workquark.org
+          - zitadel.jrclabs.xyz
 
   initJob:
     enabled: true

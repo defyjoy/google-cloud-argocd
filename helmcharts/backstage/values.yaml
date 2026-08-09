@@ -4,7 +4,7 @@ backstage:
   ingress:
     enabled: false
     className: "nginx"
-    host: "backstage.workquark.org"
+    host: "backstage.jrclabs.xyz"
     tls:
       enabled: false
 
@@ -67,19 +67,19 @@ backstage:
     appConfig:
       app:
         title: Backstage
-        baseUrl: https://backstage.workquark.org
+        baseUrl: https://backstage.jrclabs.xyz
 
       organization:
         name: My Company
 
       backend:
-        baseUrl: https://backstage.workquark.org
+        baseUrl: https://backstage.jrclabs.xyz
         listen:
           port: 7007
         csp:
           connect-src: ["'self'", "http:", "https:"]
         cors:
-          origin: https://backstage.workquark.org
+          origin: https://backstage.jrclabs.xyz
           methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
           credentials: true
         database:

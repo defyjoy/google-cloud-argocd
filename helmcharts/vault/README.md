@@ -166,10 +166,10 @@ task provision-vault-secrets VAULT_ENV=dev
 ```
 
 Some secrets have to exist in Vault before the cluster can reach Vault over the network.
-cloudflared cannot serve `vault.workquark.org` until it has its tunnel credentials, and
+cloudflared cannot serve `vault.jrclabs.xyz` until it has its tunnel credentials, and
 those credentials live in Vault — so the public endpoint is unusable at exactly the moment
 it is needed. dev makes this sharper: dev's `ClusterSecretStore` points at the *public*
-`https://vault.workquark.org`, so a dev cluster whose tunnel credential is wrong can never
+`https://vault.jrclabs.xyz`, so a dev cluster whose tunnel credential is wrong can never
 self-heal.
 
 `scripts/vault/provision-vault-secrets.sh` breaks the cycle by running the `vault` CLI inside the

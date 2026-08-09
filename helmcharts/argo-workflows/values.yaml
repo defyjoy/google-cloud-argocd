@@ -47,7 +47,7 @@ argo-workflows:
           kind: Gateway
           sectionName: https
       hostnames:
-        - argo-workflows.workquark.org
+        - argo-workflows.jrclabs.xyz
       rules:
         - matches:
             - path:
@@ -66,7 +66,7 @@ argo-workflows:
       clientSecret:
         name: argo-server-sso
         key: client-secret
-      redirectUrl: "https://argo-workflows.workquark.org/oauth2/callback"
+      redirectUrl: "https://argo-workflows.jrclabs.xyz/oauth2/callback"
       rbac:
         enabled: true
       scopes:

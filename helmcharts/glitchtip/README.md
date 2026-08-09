@@ -35,7 +35,7 @@ instead, consistent with every other chart in this repo since the Envoy Gateway 
 migration.
 
 > 🧹 The disabled `ingress` block still carries nginx annotations, a `letsencrypt-prod`
-> ClusterIssuer reference and a `glitchtip.workquark.org` TLS entry. All of it is inert — kept
+> ClusterIssuer reference and a `glitchtip.jrclabs.xyz` TLS entry. All of it is inert — kept
 > only as a record of the pre-Gateway-API setup.
 
 ### Security contexts

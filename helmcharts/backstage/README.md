@@ -83,7 +83,7 @@ backstage:
   ingress:
     enabled: true
     className: "nginx"
-    host: "backstage.workquark.org"
+    host: "backstage.jrclabs.xyz"
     # TLS disabled as using Cloudflare tunnel
     tls:
       enabled: false
@@ -112,9 +112,9 @@ backstage:
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      external-dns.alpha.kubernetes.io/hostname: backstage.workquark.org
+      external-dns.alpha.kubernetes.io/hostname: backstage.jrclabs.xyz
       external-dns.alpha.kubernetes.io/target: d4172297-9b0d-4d45-a447-d22cff68546d.cfargotunnel.com
-    host: "backstage.workquark.org"
+    host: "backstage.jrclabs.xyz"
     # TLS disabled as using Cloudflare tunnel
     tls:
       enabled: false
@@ -131,13 +131,13 @@ backstage:
     appConfig:
       app:
         title: My Company Developer Portal
-        baseUrl: https://backstage.workquark.org
+        baseUrl: https://backstage.jrclabs.xyz
 
       organization:
         name: My Company
 
       backend:
-        baseUrl: https://backstage.workquark.org
+        baseUrl: https://backstage.jrclabs.xyz
         database:
           client: better-sqlite3
           connection: ':memory:'
@@ -179,7 +179,7 @@ To integrate with GitHub:
 
 1. **Create a GitHub OAuth App**:
    - Go to GitHub Settings → Developer settings → OAuth Apps
-   - Set Authorization callback URL: `https://backstage.workquark.org/api/auth/github/handler/frame`
+   - Set Authorization callback URL: `https://backstage.jrclabs.xyz/api/auth/github/handler/frame`
 
 2. **Create a GitHub Personal Access Token**:
    - Go to GitHub Settings → Developer settings → Personal access tokens
@@ -249,7 +249,7 @@ backstage:
 
 ### Accessing Backstage
 
-Once deployed, access Backstage at: `https://backstage.workquark.org`
+Once deployed, access Backstage at: `https://backstage.jrclabs.xyz`
 
 ### Creating a Service Catalog Entry
 

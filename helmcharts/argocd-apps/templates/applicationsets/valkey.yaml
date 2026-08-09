@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "valkey.ingress.hosts[0].host"
-              value: {{ `"valkey.{{name}}.workquark.org"` }}
+              value: {{ `"valkey.{{name}}.jrclabs.xyz"` }}
             - name: "valkey.ingress.tls[0].secretName"
               value: {{ `"valkey-{{name}}-tls"` }}
             - name: "valkey.ingress.tls[0].hosts[0]"
-              value: {{ `"valkey.{{name}}.workquark.org"` }}
+              value: {{ `"valkey.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: valkey

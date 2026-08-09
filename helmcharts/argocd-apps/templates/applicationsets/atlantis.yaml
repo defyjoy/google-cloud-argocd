@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "atlantis.ingress.hosts[0].host"
-              value: {{ `"atlantis.{{name}}.workquark.org"` }}
+              value: {{ `"atlantis.{{name}}.jrclabs.xyz"` }}
             - name: "atlantis.ingress.tls[0].secretName"
               value: {{ `"atlantis-{{name}}-tls"` }}
             - name: "atlantis.ingress.tls[0].hosts[0]"
-              value: {{ `"atlantis.{{name}}.workquark.org"` }}
+              value: {{ `"atlantis.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: atlantis

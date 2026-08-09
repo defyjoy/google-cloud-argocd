@@ -2,7 +2,7 @@
 
 Staypingo admin ui, deployed from Harbor.
 
-- Image: `harbor.workquark.org/staypingo/staypingo-admin-ui:v0.0.10`
+- Image: `harbor.jrclabs.xyz/staypingo/staypingo-admin-ui:v0.0.10`
 - Container port `3000`, Service port `80`
 
 ---
@@ -13,7 +13,7 @@ Staypingo admin ui, deployed from Harbor.
 
 ```yaml
 image:
-  repository: harbor.workquark.org/staypingo/staypingo-admin-ui
+  repository: harbor.jrclabs.xyz/staypingo/staypingo-admin-ui
   tag: v0.0.10
   pullPolicy: IfNotPresent
 replicas: 1

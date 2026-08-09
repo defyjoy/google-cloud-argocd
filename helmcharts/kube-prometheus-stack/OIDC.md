@@ -32,7 +32,7 @@ below for why and how that works.
    set from the requested scope.
 3. Alertmanager attaches `Authorization: Bearer <token>` to the webhook POST.
 4. ingest-api verifies the token against Zitadel's JWKS
-   (`https://zitadel.workquark.org/.well-known/openid-configuration`),
+   (`https://zitadel.jrclabs.xyz/.well-known/openid-configuration`),
    checks `iss`/`aud`, and derives tenant identity from the token claims.
 
 ## Config mechanism: AlertmanagerConfig, not a Secret
@@ -90,7 +90,7 @@ alertmanager:
     clientId: "workquark-alertmanager"
     # terraform output -raw project_id — also the aud claim from project:aud scope
     projectId: "383904466425938149"
-    tokenUrl: "https://zitadel.workquark.org/oauth/v2/token"
+    tokenUrl: "https://zitadel.jrclabs.xyz/oauth/v2/token"
     externalSecret:
       secretStore: vault-secretstore
       vaultPath: alarmify/management/alertmanager-oauth   # field: client-secret only
@@ -190,7 +190,7 @@ httpConfig:
     clientSecret:
       name: alarmify-oauth
       key: client-secret
-    tokenUrl: "https://zitadel.workquark.org/oauth/v2/token"
+    tokenUrl: "https://zitadel.jrclabs.xyz/oauth/v2/token"
     scopes:
       - openid
       - "urn:zitadel:iam:org:project:id:383904466425938149:aud"
@@ -237,7 +237,7 @@ publicly trusted certificate, so no `tlsConfig.ca` is needed.
 
 Zitadel derives a token's `iss` claim from the host the request was made to,
 not from static config. `tokenUrl` must therefore be
-`https://zitadel.workquark.org/oauth/v2/token` (the public domain) — pointing
+`https://zitadel.jrclabs.xyz/oauth/v2/token` (the public domain) — pointing
 it at `zitadel.home.arpa` would mint tokens with the wrong issuer and
 ingest-api's JWKS check would reject them. See
 [`ZITADEL-PUBLIC-EXPOSURE.md`](https://github.com/Alarmify/alarmify-docs/blob/main/docs/auth/zitadel-public-exposure.md)

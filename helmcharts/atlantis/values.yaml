@@ -21,14 +21,14 @@ atlantis:
       nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: atlantis.workquark.org
+      - host: atlantis.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: atlantis-tls
         hosts:
-          - atlantis.workquark.org
+          - atlantis.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

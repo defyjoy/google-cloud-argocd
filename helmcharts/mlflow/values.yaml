@@ -19,14 +19,14 @@ mlflow:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: mlflow.workquark.org
+      - host: mlflow.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: mlflow-tls
         hosts:
-          - mlflow.workquark.org
+          - mlflow.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

@@ -3,10 +3,10 @@ httproute:
     name: gateway
     namespace: gateway-system
   hostnames:
-    - plane.workquark.org
+    - plane.jrclabs.xyz
     - plane.home.arpa
   externalDns:
-    hostname: plane.workquark.org
+    hostname: plane.jrclabs.xyz
     class: cloudflare
 
 docstoreBucket: uploads
@@ -16,7 +16,7 @@ plane-ce:
 
   ingress:
     enabled: false
-    appHost: plane.workquark.org
+    appHost: plane.jrclabs.xyz
     minioHost: ""
     rabbitmqHost: ""
     ingressClass: "nginx"

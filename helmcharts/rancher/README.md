@@ -51,7 +51,7 @@ helm install rancher rancher-stable/rancher \
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `rancher.hostname` | Rancher server hostname | `rancher.workquark.org` |
+| `rancher.hostname` | Rancher server hostname | `rancher.jrclabs.xyz` |
 | `rancher.replicas` | Number of Rancher replicas | `3` |
 | `rancher.tls` | TLS configuration | `ingress` |
 | `rancher.persistence.enabled` | Enable persistent storage | `true` |

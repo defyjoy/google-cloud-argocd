@@ -1,4 +1,4 @@
-domain: workquark.org
+domain: jrclabs.xyz
 
 airflow:
   enabled: true

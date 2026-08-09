@@ -14,7 +14,7 @@ the six charts.
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-schedule-api` (`version: 0.1.0`, `appVersion: v0.0.2`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-schedule-api:v0.0.2` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-schedule-api:v0.0.2` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` (Phase 5) |
 | 📛 Namespace | `alarmify-schedule-api` |
 | 🚀 ArgoCD App | `dev-alarmify-schedule-api` (`automated.prune` + `selfHeal: true`) |
@@ -48,7 +48,7 @@ the six charts.
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-schedule-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-schedule-api
   tag: v0.0.2
   pullPolicy: IfNotPresent
 

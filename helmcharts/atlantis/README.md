@@ -55,7 +55,7 @@ atlantis:
     enabled: true
     className: "nginx"
     hosts:
-      - host: atlantis.workquark.org
+      - host: atlantis.jrclabs.xyz
     
   config:
     github:

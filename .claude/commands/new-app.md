@@ -29,7 +29,7 @@ From the arguments:
 - `HOSTNAME` = arg 3
 - `CONTAINER_PORT` = arg 4
 - `COMPONENT` = arg 5 if provided, else infer from `APP_NAME` suffix (`-ui` → `ui`, `-api` → `api`, otherwise `app`)
-- `IMAGE_REPO` = `harbor.workquark.org/${TEAM}/${APP_NAME}`
+- `IMAGE_REPO` = `harbor.jrclabs.xyz/${TEAM}/${APP_NAME}`
 - `REGISTRY_SECRET_NAME` = `${APP_NAME}-registry`
 - `CONFIGMAP_NAME` = `${APP_NAME}-config`
 - `CHART_PATH` = `helmcharts/${TEAM}/${APP_NAME}`

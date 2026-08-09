@@ -53,7 +53,7 @@ one explicit `remoteRef` per key, listed as `externalSecrets.secretKeyRefs` in `
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup
 
@@ -170,7 +170,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
@@ -238,7 +238,7 @@ kubectl -n alarmify-identity-api get externalsecret alarmify-identity-api-vars \
 | `SecretSyncedError` + `err: Secret does not exist` | `appVarsKeys[0]` (shared postgres) missing | [2️⃣](#2️⃣-shared-postgres-credentials) |
 | `SecretSyncedError` naming a `spec.data[N]` property | Key absent from `alarmify/management/zitadel` — usually Terraform not applied, or applied from a checkout that predates the key | Re-run the Zitadel Terraform; verify with the property check above |
 | `SecretSyncedError` + `permission denied` / `403` | Vault token in `external-secrets/vault-token` expired or lacks a policy on the path | Renew/replace that Secret in ns `external-secrets` |
-| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.workquark.org` (no in-cluster Vault) | Check the Cloudflare tunnel + DNS; known, accepted risk for dev |
+| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` (no in-cluster Vault) | Check the Cloudflare tunnel + DNS; known, accepted risk for dev |
 | Pod crashloops on startup, Zitadel error | `ZITADEL_ISSUER` / `ZITADEL_AUDIENCE` missing or wrong | Both are **Vault-only** for this app — verify with the round-trip above |
 | `401`/`403` on every request | `ZITADEL_AUDIENCE` ≠ the `aud` claim the caller sends | Compare the token's `aud` against `ZITADEL_AUDIENCE` in `kv/alarmify/management/zitadel`. Never hardcode it in `values.yaml` — a literal `env` would silently shadow Vault |
 | Provisioning fails, `ZITADEL_PROJECT_ORG_ID` looks unset | Expecting a Vault key of that name — there isn't one | It maps from **`ZITADEL_INSTANCE_ORG_ID`**; see the mapping table in [1️⃣](#1️⃣-zitadel-config-️-terraform-owned--do-not-hand-write) |
@@ -257,7 +257,7 @@ not the problem**. containerd returns `NotFound` — the **tag is absent from Ha
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 curl -su "$HARBOR_USER:$HARBOR_TOKEN" \
-  "https://harbor.workquark.org/api/v2.0/projects/alarmify/repositories/alarmify-identity-api/artifacts?page_size=20" \
+  "https://harbor.jrclabs.xyz/api/v2.0/projects/alarmify/repositories/alarmify-identity-api/artifacts?page_size=20" \
   | jq -r '.[].tags[]?.name'
 ```
 

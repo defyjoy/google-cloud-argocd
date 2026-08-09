@@ -54,7 +54,7 @@ This chart pulls exactly two: `ZITADEL_ISSUER` and `ZITADEL_AUDIENCE`.
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup
 
@@ -165,7 +165,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
@@ -223,7 +223,7 @@ kubectl -n alarmify-incident-api exec deploy/dev-alarmify-incident-api -- \
 | `SecretSyncedError` naming a `spec.data[N]` property | Key absent from `alarmify/management/zitadel` — usually Terraform not applied | Re-run the Zitadel Terraform |
 | `GET /api/v1/incidents` → **500** | `DB_HOST`/`DB_PASSWORD` never reached the container; app defaults to `localhost:5432` | Fix the shared postgres object, force-sync, restart |
 | `SecretSyncedError` + `permission denied` / `403` | Vault token in `external-secrets/vault-token` expired or lacks a policy | Renew/replace that Secret in ns `external-secrets` |
-| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.workquark.org` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
+| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
 | `401`/`403` on every request | `ZITADEL_AUDIENCE` ≠ the `aud` the caller sends | Compare the token's `aud` against `ZITADEL_AUDIENCE` in `kv/alarmify/management/zitadel`. 🚫 Never reintroduce it in `values.yaml` — see the row below |
 | Vault Zitadel keys seem ignored | Someone reintroduced `auth.zitadelIssuer`/`auth.zitadelAudience` as chart values — they render as literal `env`, which Kubernetes ranks **above** `envFrom` | Delete the `auth.*` values *and* their `env` entries in `deployment.yaml`. This exact bug pinned the app to a dead project ID until 2026-08-01 |
 | Kiali shows no HTTP codes for this app | waypoint down, or `VMPodScrape` not applied | `kubectl -n alarmify-incident-api get gateway,vmpodscrape` |
@@ -238,7 +238,7 @@ not the problem**. containerd returns `NotFound` — the **tag is absent from Ha
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 curl -su "$HARBOR_USER:$HARBOR_TOKEN" \
-  "https://harbor.workquark.org/api/v2.0/projects/alarmify/repositories/alarmify-incident-api/artifacts?page_size=20" \
+  "https://harbor.jrclabs.xyz/api/v2.0/projects/alarmify/repositories/alarmify-incident-api/artifacts?page_size=20" \
   | jq -r '.[].tags[]?.name'
 ```
 

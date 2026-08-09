@@ -44,9 +44,9 @@ harbor:
           kind: Gateway
           sectionName: http
       hosts:
-        - harbor.workquark.org
+        - harbor.jrclabs.xyz
         - harbor.home.arpa
-  externalURL: https://harbor.workquark.org
+  externalURL: https://harbor.jrclabs.xyz
 ```
 
 The public URL is `https://`, but **TLS terminates at Cloudflare** — this HTTPRoute attaches to
@@ -71,7 +71,7 @@ Istio Gateway migration.
 
 ```yaml
 annotations:
-  external-dns.alpha.kubernetes.io/hostname: harbor.workquark.org
+  external-dns.alpha.kubernetes.io/hostname: harbor.jrclabs.xyz
   external-dns.alpha.kubernetes.io/class: cloudflare
 ```
 

@@ -58,7 +58,7 @@ spec:
               # not route. Without this pin the LAN name fails with:
               #   Message=Instance not found (QUERY-1kIjX)
               - name: x-zitadel-instance-host
-                value: zitadel.workquark.org
+                value: zitadel.jrclabs.xyz
               # Makes Zitadel issue/emit the LAN name instead of ExternalDomain, so the
               # Terraform provider's discovered issuer matches the host it connected to.
               # REQUIRES zitadel.home.arpa to be a registered *trusted* domain (done

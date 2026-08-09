@@ -49,8 +49,8 @@ helm install argo-workflows ./helmcharts/argo-workflows
 2. Click "New OAuth App"
 3. Fill in the details:
    - **Application name**: Argo Workflows
-   - **Homepage URL**: `https://argo-workflows.workquark.org`
-   - **Authorization callback URL**: `https://argo-workflows.workquark.org/oauth2/callback`
+   - **Homepage URL**: `https://argo-workflows.jrclabs.xyz`
+   - **Authorization callback URL**: `https://argo-workflows.jrclabs.xyz/oauth2/callback`
 4. Click "Register application"
 5. Copy the **Client ID** and generate a **Client Secret**
 
@@ -97,7 +97,7 @@ spec:
 
 The chart is configured to use Gateway API HTTPRoute for ingress. The HTTPRoute is automatically created and points to:
 
-- **Hostname**: `argo-workflows.workquark.org`
+- **Hostname**: `argo-workflows.jrclabs.xyz`
 - **Gateway**: `default` in `envoy-gateway-system` namespace
 - **Service**: Argo Workflows server service on port `2746`
 
@@ -124,7 +124,7 @@ argo submit templates/suspend-template.yaml -n argo-workflows
 Once deployed, access the Argo Workflows UI at:
 
 ```
-https://argo-workflows.workquark.org
+https://argo-workflows.jrclabs.xyz
 ```
 
 You will be redirected to GitHub for authentication.
@@ -169,7 +169,7 @@ argo resume suspend-template-<random-suffix> -n argo-workflows
 
 ### Server Configuration
 
-- **HTTPRoute**: Enabled with hostname `argo-workflows.workquark.org`
+- **HTTPRoute**: Enabled with hostname `argo-workflows.jrclabs.xyz`
 - **SSO**: Enabled with GitHub OAuth
 - **Auth Modes**: `sso` (GitHub OAuth)
 

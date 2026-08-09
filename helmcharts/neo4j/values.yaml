@@ -19,14 +19,14 @@ neo4j:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: neo4j.workquark.org
+      - host: neo4j.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: neo4j-tls
         hosts:
-          - neo4j.workquark.org
+          - neo4j.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

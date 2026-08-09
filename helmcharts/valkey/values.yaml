@@ -21,14 +21,14 @@ valkey:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: valkey.workquark.org
+      - host: valkey.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: valkey-tls
         hosts:
-          - valkey.workquark.org
+          - valkey.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

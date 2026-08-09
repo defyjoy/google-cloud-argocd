@@ -64,7 +64,7 @@ task provision-vault-secrets VAULT_ENV=dev  # -> kv/alarmify/dev/cloudflared/tok
 ```
 
 Before writing, the task checks the token by listing the zone in `domainFilters`
-(`workquark.org`). That check exists because this chart's failure mode is quiet: with a
+(`jrclabs.xyz`). That check exists because this chart's failure mode is quiet: with a
 bad token external-dns keeps running and reporting healthy while DNS records silently
 stop being reconciled. Listing the zone also proves the token actually carries `Zone:Read`
 for the zone in question, not merely that it exists.
@@ -132,7 +132,7 @@ external-dns:
     - --cloudflare-proxied
 
   domainFilters:
-    - workquark.org
+    - jrclabs.xyz
 
   annotationFilter: external-dns.alpha.kubernetes.io/class=cloudflare
 
@@ -195,7 +195,7 @@ spec:
     - name: default
       namespace: envoy-gateway-system
   hostnames:
-    - example.workquark.org  # External-DNS will automatically create DNS record
+    - example.jrclabs.xyz  # External-DNS will automatically create DNS record
   rules:
     - matches:
         - path:
@@ -215,7 +215,7 @@ metadata:
   name: example-gateway
   namespace: envoy-gateway-system
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: gateway.workquark.org
+    external-dns.alpha.kubernetes.io/hostname: gateway.jrclabs.xyz
     external-dns.alpha.kubernetes.io/class: cloudflare
 spec:
   gatewayClassName: envoy
@@ -237,7 +237,7 @@ metadata:
   name: example-service
   namespace: default
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: service.workquark.org
+    external-dns.alpha.kubernetes.io/hostname: service.jrclabs.xyz
     external-dns.alpha.kubernetes.io/class: cloudflare
 spec:
   type: LoadBalancer
@@ -258,7 +258,7 @@ metadata:
   namespace: default
 spec:
   endpoints:
-  - dnsName: "api.workquark.org"
+  - dnsName: "api.jrclabs.xyz"
     recordTTL: 300
     recordType: "A"
     targets:
@@ -431,7 +431,7 @@ rotating the token does not touch the tunnel. Seed it with `task provision-vault
 
 ### Per-cluster TXT registry owner
 
-Both `local` and `dev` manage the **same `workquark.org` zone**. Each cluster uses a distinct
+Both `local` and `dev` manage the **same `jrclabs.xyz` zone**. Each cluster uses a distinct
 TXT registry owner ID so dev's external-dns does not fight the management instance over
 ownership of the same records.
 

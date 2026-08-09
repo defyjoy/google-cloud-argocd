@@ -7,8 +7,8 @@ Plane (Community Edition) — project management. **management-cluster deploymen
 North-south ingress is a Gateway API `HTTPRoute` attached to the shared `istio-gateway`, exactly
 like [`harbor`](../harbor/README.md). Public TLS terminates at Cloudflare, and the
 [Cloudflare Tunnel](../cloudflared/README.md) already has a wildcard
-`*.workquark.org → istio-gateway-istio.istio-system:80` rule — so **no cloudflared change is
-needed**; declaring the HTTPRoute is sufficient for `plane.workquark.org` to route.
+`*.jrclabs.xyz → istio-gateway-istio.istio-system:80` rule — so **no cloudflared change is
+needed**; declaring the HTTPRoute is sufficient for `plane.jrclabs.xyz` to route.
 [`external-dns`](../external-dns/README.md) (class `cloudflare`) creates the CNAME automatically.
 
 ## 🔐 Credentials in this file are placeholders
@@ -50,10 +50,10 @@ httproute:
     name: gateway
     namespace: gateway-system
   hostnames:
-    - plane.workquark.org
+    - plane.jrclabs.xyz
     - plane.home.arpa
   externalDns:
-    hostname: plane.workquark.org
+    hostname: plane.jrclabs.xyz
     class: cloudflare
 
 docstoreBucket: uploads
@@ -67,7 +67,7 @@ the route. `plane.home.arpa` allows LAN access over `http://`, since the StepCA 
 > block only declares the hostname and class so the record is created in the Cloudflare zone.
 
 `docstoreBucket` **must equal** `plane-ce.env.docstore_bucket` below. Uploaded docs are served
-from `https://plane.workquark.org/<docstoreBucket>/…` by the frontend.
+from `https://plane.jrclabs.xyz/<docstoreBucket>/…` by the frontend.
 
 ---
 
@@ -90,7 +90,7 @@ upstream docs explicitly warn against using `stable`.** Keep in step with the ch
 plane-ce:
   ingress:
     enabled: false
-    appHost: plane.workquark.org
+    appHost: plane.jrclabs.xyz
     minioHost: ""
     rabbitmqHost: ""
     ingressClass: "nginx"

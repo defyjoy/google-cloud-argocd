@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Why exec instead of talking to Vault over the network: the secrets seeded here are
 # the ones the cluster needs before it has a working ingress path. cloudflared cannot
-# serve vault.workquark.org until it has its tunnel credentials, and those credentials
+# serve vault.jrclabs.xyz until it has its tunnel credentials, and those credentials
 # live in Vault — so the public hostname is unusable at exactly the moment we need it.
 # `kubectl exec` reaches Vault over the API server, which needs no tunnel, no Gateway
 # and no HTTPRoute.
@@ -87,7 +87,7 @@ else
   CLOUDFLARE_API_TOKEN=$(dotenv_get "$ENV_FILE" CLOUDFLARE_API_TOKEN)
   [ -n "$CLOUDFLARE_API_TOKEN" ] || die "CLOUDFLARE_API_TOKEN is unset or empty in $ENV_FILE.
    Create a token at https://dash.cloudflare.com -> My Profile -> API Tokens with
-   Zone:Read + DNS:Edit on workquark.org, then put it in $ENV_FILE."
+   Zone:Read + DNS:Edit on jrclabs.xyz, then put it in $ENV_FILE."
   echo "🔑 Using CLOUDFLARE_API_TOKEN from $ENV_FILE"
 fi
 
@@ -108,7 +108,7 @@ export CLOUDFLARE_API_TOKEN
 # under Account -> API Tokens instead of My Profile -> API Tokens) — a false negative that
 # blocks the bootstrap on a working token. Listing the zone external-dns manages instead
 # authenticates either kind of token AND proves it carries the Zone:Read scope it needs.
-CLOUDFLARE_ZONE="${CLOUDFLARE_ZONE:-workquark.org}"  # helmcharts/external-dns domainFilters
+CLOUDFLARE_ZONE="${CLOUDFLARE_ZONE:-jrclabs.xyz}"  # helmcharts/external-dns domainFilters
 
 if command -v curl >/dev/null 2>&1 && [ "${CLOUDFLARE_TOKEN_VERIFY:-true}" = "true" ]; then
   # No `curl -f`: Cloudflare answers a bad token with HTTP 400 and a JSON body naming the
@@ -206,7 +206,7 @@ echo "   credentials: $CLOUDFLARED_CREDENTIALS_FILE"
 [ -s "$CLOUDFLARED_CREDENTIALS_FILE" ] || die "$CLOUDFLARED_CREDENTIALS_FILE missing or empty.
    Tunnel '$CLOUDFLARED_TUNNEL_ID' has no credentials file on this machine. Do NOT run
    'cloudflared tunnel create' to make one — that mints a NEW tunnel with a new ID and
-   every *.workquark.org CNAME would need repointing."
+   every *.jrclabs.xyz CNAME would need repointing."
 
 grep -q -- "-----BEGIN" "$CLOUDFLARED_CERT_FILE" || die "$CLOUDFLARED_CERT_FILE does not look like a PEM"
 

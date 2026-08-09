@@ -42,7 +42,7 @@
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup
 
@@ -135,7 +135,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
@@ -187,7 +187,7 @@ kubectl -n alarmify-schedule-api get externalsecret alarmify-schedule-api-vars \
 | Same error naming `alarmify/dev/alarmify-schedule-api` | Someone re-added the deleted per-app path to `appVarsKeys` | Remove it from `values.yaml` — don't recreate the Vault object → [1️⃣](#1️⃣-the-app-object--️-removed) |
 | Schedule routes return **500** | `DB_HOST`/`DB_PASSWORD` never reached the container | Fix the shared postgres object, force-sync, restart |
 | `SecretSyncedError` + `permission denied` / `403` | Vault token in `external-secrets/vault-token` expired or lacks a policy | Renew/replace that Secret in ns `external-secrets` |
-| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.workquark.org` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
+| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
 | Secret exists but pod has old values | Env vars injected at pod start | `kubectl rollout restart` |
 | `DEBUG` never appears in the container | Expected — `debug: "true"` in `values.yaml` is inert for this chart; `deployment.yaml` renders no `DEBUG` env var | Add it to `deployment.yaml` if you actually need it |
 | `ImagePullBackOff` | See below | |
@@ -201,7 +201,7 @@ not the problem**. containerd returns `NotFound` — the **tag is absent from Ha
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 curl -su "$HARBOR_USER:$HARBOR_TOKEN" \
-  "https://harbor.workquark.org/api/v2.0/projects/alarmify/repositories/alarmify-schedule-api/artifacts?page_size=20" \
+  "https://harbor.jrclabs.xyz/api/v2.0/projects/alarmify/repositories/alarmify-schedule-api/artifacts?page_size=20" \
   | jq -r '.[].tags[]?.name'
 ```
 

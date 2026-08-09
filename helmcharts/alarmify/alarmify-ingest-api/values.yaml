@@ -1,5 +1,5 @@
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-ingest-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-ingest-api
   tag: v0.0.14
   pullPolicy: IfNotPresent
 

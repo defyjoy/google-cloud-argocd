@@ -21,14 +21,14 @@ cassandra:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: cassandra.workquark.org
+      - host: cassandra.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: cassandra-tls
         hosts:
-          - cassandra.workquark.org
+          - cassandra.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

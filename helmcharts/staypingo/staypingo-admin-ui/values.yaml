@@ -1,5 +1,5 @@
 image:
-  repository: harbor.workquark.org/staypingo/staypingo-admin-ui
+  repository: harbor.jrclabs.xyz/staypingo/staypingo-admin-ui
   tag: v0.0.10
   pullPolicy: IfNotPresent
 

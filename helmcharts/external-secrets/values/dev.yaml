@@ -1,6 +1,6 @@
 vaultClusterSecretStore:
   vault:
-    server: "https://vault.workquark.org"
+    server: "https://vault.jrclabs.xyz"
 
 external-secrets:
   externalSecrets:

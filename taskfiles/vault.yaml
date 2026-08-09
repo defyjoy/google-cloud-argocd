@@ -149,7 +149,7 @@ tasks:
     summary: |
       Writes the secrets the cluster needs before it has a working ingress path.
 
-      Chicken-and-egg this solves: cloudflared cannot serve vault.workquark.org until it
+      Chicken-and-egg this solves: cloudflared cannot serve vault.jrclabs.xyz until it
       has its tunnel credentials, and those credentials come from Vault — so the public
       Vault endpoint is unreachable at exactly the moment it is needed. This task talks to
       Vault through `kubectl exec` (API server path, no tunnel/Gateway/HTTPRoute involved)

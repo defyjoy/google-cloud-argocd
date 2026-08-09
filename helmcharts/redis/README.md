@@ -41,7 +41,7 @@ External access goes through a Gateway API `HTTPRoute`, consistent with every ch
 repo since the Envoy Gateway → Istio Gateway migration.
 
 > 🧹 The disabled block still carries nginx annotations, a `letsencrypt-prod` ClusterIssuer
-> reference and a `redis.workquark.org` TLS entry. All inert — kept only as a record of the
+> reference and a `redis.jrclabs.xyz` TLS entry. All inert — kept only as a record of the
 > pre-Gateway-API setup.
 
 ### Security contexts

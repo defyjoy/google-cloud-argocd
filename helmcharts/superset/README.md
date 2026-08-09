@@ -60,7 +60,7 @@ superset:
 ```
 
 External access goes through a Gateway API `HTTPRoute`. The disabled block retains a
-`superset.workquark.org` host entry as a record of the pre-Gateway-API setup.
+`superset.jrclabs.xyz` host entry as a record of the pre-Gateway-API setup.
 
 ### Security contexts
 

@@ -6,14 +6,14 @@ cloudflared:
     name: "management"
 
   ingress:
-    - hostname: "zitadel.workquark.org"
+    - hostname: "zitadel.jrclabs.xyz"
       service: http://gateway.gateway-system.svc.cluster.local:80
       originRequest:
         http2Origin: true
-    - hostname: "harbor.workquark.org"
+    - hostname: "harbor.jrclabs.xyz"
       service: http://gateway.gateway-system.svc.cluster.local:80
-    - hostname: "plane.workquark.org"
+    - hostname: "plane.jrclabs.xyz"
       service: http://gateway.gateway-system.svc.cluster.local:80
-    - hostname: "vault.workquark.org"
+    - hostname: "vault.jrclabs.xyz"
       service: http://gateway.gateway-system.svc.cluster.local:80
     - service: http_status:404

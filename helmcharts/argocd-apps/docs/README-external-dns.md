@@ -42,7 +42,7 @@ metadata:
 ## Configuration Parameters
 
 ### Production Configuration (Enhanced ApplicationSet)
-- **Domain**: `workquark.org`
+- **Domain**: `jrclabs.xyz`
 - **Cloudflare Proxy**: Enabled
 - **TTL**: 300 seconds
 - **Dry Run**: Disabled
@@ -57,7 +57,7 @@ metadata:
 - **Pod Disruption Budget**: Enabled
 
 ### Development Configuration (Dev ApplicationSet)
-- **Domain**: `dev.workquark.org`
+- **Domain**: `dev.jrclabs.xyz`
 - **Cloudflare Proxy**: Disabled
 - **TTL**: 60 seconds
 - **Dry Run**: Enabled
@@ -120,12 +120,12 @@ metadata:
   name: example-ingress
   namespace: default
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: example.workquark.org
+    external-dns.alpha.kubernetes.io/hostname: example.jrclabs.xyz
     external-dns.alpha.kubernetes.io/class: cloudflare
 spec:
   ingressClassName: nginx
   rules:
-  - host: example.workquark.org
+  - host: example.jrclabs.xyz
     http:
       paths:
       - path: /
@@ -145,7 +145,7 @@ metadata:
   name: example-service
   namespace: default
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: service.workquark.org
+    external-dns.alpha.kubernetes.io/hostname: service.jrclabs.xyz
     external-dns.alpha.kubernetes.io/class: cloudflare
 spec:
   type: LoadBalancer
@@ -165,7 +165,7 @@ metadata:
   namespace: default
 spec:
   endpoints:
-  - dnsName: "api.workquark.org"
+  - dnsName: "api.jrclabs.xyz"
     recordTTL: 300
     recordType: "A"
     targets:

@@ -1,7 +1,7 @@
 enabled: true
 
 rancher:
-  hostname: rancher.workquark.org
+  hostname: rancher.jrclabs.xyz
 
   replicas: 3
 
@@ -22,7 +22,7 @@ rancher:
     enabled: false
     ingressClassName: "nginx"
     hosts:
-      - host: rancher.workquark.org
+      - host: rancher.jrclabs.xyz
         paths:
           - /
     tls:
@@ -77,7 +77,7 @@ rancher:
   certificates:
     source: "letsEncrypt"
     letsEncrypt:
-      email: "admin@workquark.org"
+      email: "admin@jrclabs.xyz"
       environment: "production"
 
   labels:

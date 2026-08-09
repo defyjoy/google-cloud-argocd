@@ -73,7 +73,7 @@ one explicit `remoteRef` per key, listed as `externalSecrets.secretKeyRefs` in `
 ## 🧰 Prerequisites (once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login            # or: export VAULT_TOKEN=...
 vault token lookup
 
@@ -139,7 +139,7 @@ One name differs between Vault and the app, so read this before assuming a 1:1 m
 | `ZITADEL_PROJECT_ID` | `ZITADEL_PROJECT_ID` | scopes the hosted login to the Alarmify project |
 | `ZITADEL_CLIENT_ID` | 🔀 **`ZITADEL_UI_CLIENT_ID`** | public **PKCE** client for the BFF login flow (`bff/zitadelOidc.ts:31`). Terraform prefixes it `UI_` to distinguish it from the Kiali client |
 
-Must match a real PKCE client with `https://ui.workquark.org` registered as a redirect URI —
+Must match a real PKCE client with `https://ui.jrclabs.xyz` registered as a redirect URI —
 which is exactly what Terraform guarantees, hence the "don't hand-write" rule.
 
 ### 🔄 Rotating `SESSION_SECRET` (signs everyone out)
@@ -175,7 +175,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 
@@ -239,7 +239,7 @@ kubectl -n alarmify-ui get externalsecret alarmify-ui-vars \
 
 # End-to-end: OIDC discovery must be reachable from the pod
 kubectl -n alarmify-ui exec deploy/dev-alarmify-ui -- \
-  wget -qO- https://zitadel.workquark.org/.well-known/openid-configuration | head -c 200
+  wget -qO- https://zitadel.jrclabs.xyz/.well-known/openid-configuration | head -c 200
 ```
 
 ---
@@ -253,14 +253,14 @@ kubectl -n alarmify-ui exec deploy/dev-alarmify-ui -- \
 | Zitadel `invalid_client` / `unauthorized_client` | `ZITADEL_CLIENT_ID` wrong, or the client is not a **public PKCE** client | Re-run the Zitadel Terraform; verify the client type |
 | `ZITADEL_CLIENT_ID` "missing" from Vault | Looking for that name in `alarmify/management/zitadel` — there isn't one | It maps from **`ZITADEL_UI_CLIENT_ID`**; see [1️⃣b](#1️⃣b-zitadel-config-️-terraform-owned--do-not-hand-write) |
 | A Zitadel key reverted after being "fixed" in Vault | `terraform apply` rewrote `alarmify/management/zitadel` wholesale | Change `terraform/zitadel/vault.tf` and re-apply — never `vault kv patch` that object |
-| Zitadel `redirect_uri_mismatch` | `auth.appBaseUrl` ≠ the redirect URI registered in Zitadel | Both must be `https://ui.workquark.org` — `values/dev.yaml` + Zitadel |
+| Zitadel `redirect_uri_mismatch` | `auth.appBaseUrl` ≠ the redirect URI registered in Zitadel | Both must be `https://ui.jrclabs.xyz` — `values/dev.yaml` + Zitadel |
 | `SecretSyncedError` + `err: Secret does not exist` | `kv/alarmify/dev/alarmify-ui` deleted | Recreate → [1️⃣](#1️⃣-the-app-object) |
 | Secret suddenly lost keys | Someone used `vault kv put` (replaces whole object) instead of `patch` | Rewrite the full object, force-sync, restart |
 | No `alarmify-ui-vars` Secret at all, no ES object | `externalSecrets.appVarsKeys` was emptied — the whole template is conditional | Restore the list in `values.yaml` |
-| Intermittent **502/503** on `ui.workquark.org` | The Node/Envoy keepalive race | The `DestinationRule` mitigates it — see [`README.md`](./README.md#-the-keepalive-destinationrule--read-this-before-deleting-it). Confirm `idleTimeout` is still **< 5s** |
+| Intermittent **502/503** on `ui.jrclabs.xyz` | The Node/Envoy keepalive race | The `DestinationRule` mitigates it — see [`README.md`](./README.md#-the-keepalive-destinationrule--read-this-before-deleting-it). Confirm `idleTimeout` is still **< 5s** |
 | Pages load, all data views error | The four backend APIs are down | Their own runbooks — **this is the current state** |
-| `ui.workquark.org` doesn't resolve | external-dns `target` missing | `target` lives on the **`istio-gateway` `Gateway`**, never on the HTTPRoute |
-| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.workquark.org` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
+| `ui.jrclabs.xyz` doesn't resolve | external-dns `target` missing | `target` lives on the **`istio-gateway` `Gateway`**, never on the HTTPRoute |
+| `SecretSyncedError` + connection refused / TLS | dev reaches Vault over the **public** `https://vault.jrclabs.xyz` | Check the Cloudflare tunnel + DNS; accepted risk for dev |
 
 ### 🔎 ESO controller logs
 

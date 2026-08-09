@@ -14,7 +14,7 @@ Public event-ingestion endpoint. Accepts alert/event payloads over HTTP, authent
 | Fact | Value |
 |---|---|
 | 🏷️ Chart | `helmcharts/alarmify/alarmify-ingest-api` (`version: 0.1.0`, `appVersion: v0.0.6`) |
-| 📦 Image | `harbor.workquark.org/alarmify/alarmify-ingest-api:v0.0.14` |
+| 📦 Image | `harbor.jrclabs.xyz/alarmify/alarmify-ingest-api:v0.0.14` |
 | 🌍 Clusters | **`dev` only** — decommissioned from `management` (Phase 3) |
 | 📛 Namespace | `alarmify-ingest-api` |
 | 🚀 ArgoCD App | `dev-alarmify-ingest-api` (`automated.prune` + `selfHeal: true`) |
@@ -58,7 +58,7 @@ Public event-ingestion endpoint. Accepts alert/event payloads over HTTP, authent
 
 ```yaml
 image:
-  repository: harbor.workquark.org/alarmify/alarmify-ingest-api
+  repository: harbor.jrclabs.xyz/alarmify/alarmify-ingest-api
   tag: v0.0.14
   pullPolicy: IfNotPresent
 

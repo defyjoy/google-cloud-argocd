@@ -19,14 +19,14 @@ glitchtip:
       nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
     hosts:
-      - host: glitchtip.workquark.org
+      - host: glitchtip.jrclabs.xyz
         paths:
           - path: /
             pathType: Prefix
     tls:
       - secretName: glitchtip-tls
         hosts:
-          - glitchtip.workquark.org
+          - glitchtip.jrclabs.xyz
 
   podSecurityContext:
     runAsNonRoot: true

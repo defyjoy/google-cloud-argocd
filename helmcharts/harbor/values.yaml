@@ -10,7 +10,7 @@ harbor:
         app.kubernetes.io/name: harbor
         app.kubernetes.io/component: core
       annotations:
-        external-dns.alpha.kubernetes.io/hostname: harbor.workquark.org
+        external-dns.alpha.kubernetes.io/hostname: harbor.jrclabs.xyz
         external-dns.alpha.kubernetes.io/class: cloudflare
       parentRefs:
         - name: gateway
@@ -19,10 +19,10 @@ harbor:
           kind: Gateway
           sectionName: http
       hosts:
-        - harbor.workquark.org
+        - harbor.jrclabs.xyz
         - harbor.home.arpa
 
-  externalURL: https://harbor.workquark.org
+  externalURL: https://harbor.jrclabs.xyz
 
   registry:
     relativeurls: true

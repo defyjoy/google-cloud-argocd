@@ -17,8 +17,8 @@ templates + `values.yaml`) and cross-referenced with the field-level schema docs
 |---|---|
 | KV engine | KV **v2**, mounted at **`kv`** |
 | Store (in cluster) | `ClusterSecretStore/vault-secretstore` → `http://local-vault.vault.svc.cluster.local:8200` |
-| Store (dev override) | `https://vault.workquark.org` (`helmcharts/external-secrets/values/dev.yaml`) |
-| CLI endpoint | `export VAULT_ADDR="https://vault.workquark.org"` |
+| Store (dev override) | `https://vault.jrclabs.xyz` (`helmcharts/external-secrets/values/dev.yaml`) |
+| CLI endpoint | `export VAULT_ADDR="https://vault.jrclabs.xyz"` |
 | Live path prefix | **`alarmify/dev/*`** — every chart's `appVarsKeys` points here today |
 | Legacy prefix | `alarmify/prod/*` — original source-of-truth tree (apps ran on `management`); still exists, no chart reads it now |
 
@@ -35,7 +35,7 @@ Where two objects are listed, `mergePolicy: Replace` means the object listed **l
 ## Prerequisites (run once per shell)
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 vault login          # or: export VAULT_TOKEN=...
 vault token lookup   # sanity check
 ```
@@ -59,7 +59,7 @@ vault kv list kv/alarmify/prod       # legacy source objects
 | Key | Value | Notes |
 |---|---|---|
 | `AUTH_MODE` | `zitadel` | `legacy` \| `zitadel` \| `dual` (cutover) |
-| `ZITADEL_ISSUER` | `https://zitadel.workquark.org` | JWKS verification + mgmt API |
+| `ZITADEL_ISSUER` | `https://zitadel.jrclabs.xyz` | JWKS verification + mgmt API |
 | `ZITADEL_AUDIENCE` | `380619948738806915` | expected `aud` (client_id / project_id) |
 | `ZITADEL_PROJECT_ID` | `380619948738806915` | Alarmify project |
 | `ZITADEL_PROJECT_ORG_ID` | `REPLACE_WITH_ORG_ID` | org owning the project |
@@ -69,7 +69,7 @@ vault kv list kv/alarmify/prod       # legacy source objects
 ```bash
 vault kv put kv/alarmify/dev/alarmify-identity-api \
   AUTH_MODE='zitadel' \
-  ZITADEL_ISSUER='https://zitadel.workquark.org' \
+  ZITADEL_ISSUER='https://zitadel.jrclabs.xyz' \
   ZITADEL_AUDIENCE='380619948738806915' \
   ZITADEL_PROJECT_ID='380619948738806915' \
   ZITADEL_PROJECT_ORG_ID='REPLACE_WITH_ORG_ID' \
@@ -91,12 +91,12 @@ vault kv put kv/alarmify/dev/alarmify-identity-api \
 
 | Key | Value | Notes |
 |---|---|---|
-| `ZITADEL_ISSUER` | `https://zitadel.workquark.org` | JWKS verification |
+| `ZITADEL_ISSUER` | `https://zitadel.jrclabs.xyz` | JWKS verification |
 | `ZITADEL_AUDIENCE` | `380619948738806915` | expected `aud` |
 
 ```bash
 vault kv put kv/alarmify/dev/alarmify-incident-api \
-  ZITADEL_ISSUER='https://zitadel.workquark.org' \
+  ZITADEL_ISSUER='https://zitadel.jrclabs.xyz' \
   ZITADEL_AUDIENCE='380619948738806915'
 ```
 
@@ -156,14 +156,14 @@ vault kv put kv/alarmify/dev/alarmify-event-worker \
 |---|---|---|
 | `NATS_USER` | `alarmify-ingest-api` | publishes raw ingest events to dev's local NATS |
 | `NATS_PASSWORD` | `REPLACE_WITH_STRONG_PASSWORD` | publish-connection password |
-| `ZITADEL_ISSUER` | `https://zitadel.workquark.org` | JWKS verification |
+| `ZITADEL_ISSUER` | `https://zitadel.jrclabs.xyz` | JWKS verification |
 | `ZITADEL_AUDIENCE` | `380619948738806915` | expected `aud` |
 
 ```bash
 vault kv put kv/alarmify/dev/alarmify-ingest-api \
   NATS_USER='alarmify-ingest-api' \
   NATS_PASSWORD='REPLACE_WITH_STRONG_PASSWORD' \
-  ZITADEL_ISSUER='https://zitadel.workquark.org' \
+  ZITADEL_ISSUER='https://zitadel.jrclabs.xyz' \
   ZITADEL_AUDIENCE='380619948738806915'
 ```
 
@@ -181,14 +181,14 @@ vault kv put kv/alarmify/dev/alarmify-ingest-api \
 | Key | Value | Notes |
 |---|---|---|
 | `SESSION_SECRET` | `REPLACE_WITH_STRONG_RANDOM` | derives AES-256-GCM key for the httpOnly session cookie; **must** be set for real deploys |
-| `ZITADEL_ISSUER` | `https://zitadel.workquark.org` | OIDC discovery base |
+| `ZITADEL_ISSUER` | `https://zitadel.jrclabs.xyz` | OIDC discovery base |
 | `ZITADEL_CLIENT_ID` | `REPLACE_WITH_PKCE_CLIENT_ID` | public PKCE client for the BFF login flow |
 | `ZITADEL_PROJECT_ID` | `380619948738806915` | scopes hosted login to the Alarmify project |
 
 ```bash
 vault kv put kv/alarmify/dev/alarmify-ui \
   SESSION_SECRET='REPLACE_WITH_STRONG_RANDOM' \
-  ZITADEL_ISSUER='https://zitadel.workquark.org' \
+  ZITADEL_ISSUER='https://zitadel.jrclabs.xyz' \
   ZITADEL_CLIENT_ID='REPLACE_WITH_PKCE_CLIENT_ID' \
   ZITADEL_PROJECT_ID='380619948738806915'
 ```
@@ -236,7 +236,7 @@ All alarmify workloads pull with the **same** Vault object, into a per-namespace
 
 - **Vault object:** `alarmify/dev/harbor` (field `.dockerconfigjson`)
 - **Robot account source:** `harbor/secret` (fields `user`, `token`)
-- **Registry:** `harbor.workquark.org` (namespace `alarmify`)
+- **Registry:** `harbor.jrclabs.xyz` (namespace `alarmify`)
 - **ES → Secret:** each chart's `templates/harbor-registry-external-secret.yaml` copies the
   single field `.dockerconfigjson` verbatim into `<app>-registry`
   (`type: kubernetes.io/dockerconfigjson`), referenced by `imagePullSecrets` in `values.yaml`.
@@ -258,7 +258,7 @@ same object usable from either path.
 > in your shell history.
 
 ```bash
-export VAULT_ADDR="https://vault.workquark.org"
+export VAULT_ADDR="https://vault.jrclabs.xyz"
 HARBOR_USER=$(vault kv get -field=user  kv/harbor/secret)
 HARBOR_TOKEN=$(vault kv get -field=token kv/harbor/secret)
 
@@ -267,7 +267,7 @@ AUTH=$(printf '%s:%s' "$HARBOR_USER" "$HARBOR_TOKEN" | base64 | tr -d '\n')
 
 jq -n --arg u "$HARBOR_USER" --arg p "$HARBOR_TOKEN" --arg a "$AUTH" '
   { auths:
-      ( ["harbor.workquark.org", "https://harbor.workquark.org"]
+      ( ["harbor.jrclabs.xyz", "https://harbor.jrclabs.xyz"]
         | map({ (.): { username: $u, password: $p, auth: $a } })
         | add ) }' > dockerconfig.json
 ```
@@ -280,7 +280,7 @@ mangle pasted `\`-continuations (`parse error near '\n'`) — if that happens, p
 one-line form below instead.
 
 ```bash
-kubectl create secret docker-registry tmp-harbor --docker-server=harbor.workquark.org --docker-username="$HARBOR_USER" --docker-password="$HARBOR_TOKEN" --dry-run=client -o go-template='{{index .data ".dockerconfigjson"}}' | base64 -d > dockerconfig.json
+kubectl create secret docker-registry tmp-harbor --docker-server=harbor.jrclabs.xyz --docker-username="$HARBOR_USER" --docker-password="$HARBOR_TOKEN" --dry-run=client -o go-template='{{index .data ".dockerconfigjson"}}' | base64 -d > dockerconfig.json
 ```
 </details>
 
@@ -288,7 +288,7 @@ kubectl create secret docker-registry tmp-harbor --docker-server=harbor.workquar
 
 ```bash
 jq -e '.auths | keys' dockerconfig.json                       # both hosts present
-jq -r '.auths["harbor.workquark.org"].auth' dockerconfig.json | base64 -d   # -> user:token
+jq -r '.auths["harbor.jrclabs.xyz"].auth' dockerconfig.json | base64 -d   # -> user:token
 ```
 
 ### 3. Write it to Vault

@@ -46,11 +46,11 @@ spec:
             - values.yaml
           parameters:
             - name: "neo4j.ingress.hosts[0].host"
-              value: {{ `"neo4j.{{name}}.workquark.org"` }}
+              value: {{ `"neo4j.{{name}}.jrclabs.xyz"` }}
             - name: "neo4j.ingress.tls[0].secretName"
               value: {{ `"neo4j-{{name}}-tls"` }}
             - name: "neo4j.ingress.tls[0].hosts[0]"
-              value: {{ `"neo4j.{{name}}.workquark.org"` }}
+              value: {{ `"neo4j.{{name}}.jrclabs.xyz"` }}
       destination:
         server: {{ `"{{server}}"` }}
         namespace: neo4j
