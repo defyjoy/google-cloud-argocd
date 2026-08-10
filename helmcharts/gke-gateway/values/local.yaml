@@ -5,3 +5,10 @@ gateways:
   external:
     gatewayClassName: gke-l7-regional-external-managed
     addressName: ""
+
+healthCheckPolicies:
+  - name: vault-ui
+    targetService: local-vault-ui
+    namespace: vault
+    port: 8200
+    requestPath: "/v1/sys/health?standbyok=true"
