@@ -17,10 +17,9 @@ harbor:
           namespace: gateway-system
           group: gateway.networking.k8s.io
           kind: Gateway
-          sectionName: http
+          sectionName: https
       hosts:
         - harbor.jrclabs.xyz
-        - harbor.home.arpa
 
   externalURL: https://harbor.jrclabs.xyz
 

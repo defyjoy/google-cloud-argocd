@@ -18,6 +18,7 @@ certificate:
 
 httpRedirectHosts:
   - vault.jrclabs.xyz
+  - harbor.jrclabs.xyz
 
 healthCheckPolicies:
   - name: vault-ui
