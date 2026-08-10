@@ -19,7 +19,7 @@ spec:
     - clusters:
         # AND'ed with a victoria-metrics=true per-component gate -- unlike
         # victoria-metrics-operator (lightweight CRDs+controller, safe on every cluster), this
-        # chart is the heavy VMCluster storage/insert/select stack (2x Longhorn-backed
+        # chart is the heavy VMCluster storage/insert/select stack (2x standard-rwo-backed
         # vmstorage replicas etc). A blanket environment match here would silently deploy the
         # full stack to dev the moment victoria-metrics-operator (its CRD dependency) is
         # healthy -- both resource-heavy and premature: dev's role is a local VMAgent

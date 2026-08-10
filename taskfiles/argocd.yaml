@@ -356,8 +356,10 @@ tasks:
       5. Wait for every Application to finalize; an Application that is gone is a pruned workload
          tree.
 
-      ⚠️  Cilium and Longhorn are ordinary app-of-apps Applications, so a full run takes out the
-      CNI (network datapath + LoadBalancer IPs) and the storage provisioner (every PV). To tear
+      ⚠️  Cilium is an ordinary app-of-apps Application (where enabled — disabled by default on
+      GKE, see CILIUM_VALUES above), so a full run can take out the CNI (network datapath +
+      LoadBalancer IPs) on a cluster where it's active. There is no Longhorn Application in this
+      fork — storage is GKE-native (`standard-rwo`) and unaffected by this teardown. To tear
       down the workloads but keep the cluster usable:
 
         task destroy-app-of-apps KEEP_APPS_EXTRA="local-cilium"

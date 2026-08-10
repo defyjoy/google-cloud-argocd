@@ -10,8 +10,8 @@ A single ArgoCD Application (e.g. `*-clickstack`) installs both halves:
 1. **`clickstack-operators`** — MongoDB Community + ClickHouse operators (CRDs, controllers)
 2. **`clickstack`** — HyperDX, `MongoDBCommunity`, `ClickHouseCluster`, optional OTel collector
 
-**Prerequisites:** a storage class for PVCs (e.g. Longhorn), and the cluster label
-`clickhouse=true` for the ApplicationSet to select it.
+**Prerequisites:** a storage class for PVCs (`standard-rwo` on GKE, already set in
+`values.yaml`), and the cluster label `clickhouse=true` for the ApplicationSet to select it.
 
 > 🩺 **If HyperDX hangs on initContainer `wait-for-mongodb`**, confirm `MongoDBCommunity` is
 > reconciled in `Release.Namespace` and that the headless Service `*-mongodb-svc` has endpoints.

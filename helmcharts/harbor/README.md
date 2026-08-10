@@ -107,8 +107,9 @@ harbor:
     type: Recreate
 ```
 
-> ⚠️ **Required for RWO Longhorn PVCs** (registry, jobservice). `RollingUpdate` leaves old and
-> new pods both mounting the same volume, producing a **Multi-Attach deadlock**.
+> ⚠️ **Required for RWO GCE Persistent Disk PVCs** (`standard-rwo`; registry, jobservice).
+> `RollingUpdate` leaves old and new pods both mounting the same volume, producing a
+> **Multi-Attach deadlock**.
 
 ### Trivy
 
