@@ -40,4 +40,6 @@ certificate:
   issuerName: letsencrypt-prod
   dnsNames: []
 
-httpRedirectHosts: []
+httpRedirectHosts:
+  external: []
+  internal: []

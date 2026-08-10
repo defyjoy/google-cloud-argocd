@@ -21,7 +21,7 @@ argo-cd:
 
   configs:
     cm:
-      url: http://argocd.jrclabs.xyz
+      url: https://argocd.jrclabs.xyz
       application.resourceTrackingMethod: annotation+label
       resource.exclusions: |
         - apiGroups: ["operator.victoriametrics.com"]
@@ -59,7 +59,7 @@ argo-cd:
           kind: Gateway
           name: gateway
           namespace: gateway-system
-          sectionName: http
+          sectionName: https
       hostnames:
         - argocd.jrclabs.xyz
       rules:

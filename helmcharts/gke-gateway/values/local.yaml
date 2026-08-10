@@ -2,6 +2,10 @@ gateways:
   internal:
     gatewayClassName: gke-l7-rilb
     addressName: ""
+    https:
+      enabled: true
+      certificateRefs:
+        - name: gateway-wildcard-tls
   external:
     gatewayClassName: gke-l7-regional-external-managed
     addressName: ""
@@ -17,8 +21,11 @@ certificate:
     - "jrclabs.xyz"
 
 httpRedirectHosts:
-  - vault.jrclabs.xyz
-  - harbor.jrclabs.xyz
+  external:
+    - vault.jrclabs.xyz
+    - harbor.jrclabs.xyz
+  internal:
+    - argocd.jrclabs.xyz
 
 healthCheckPolicies:
   - name: vault-ui

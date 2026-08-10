@@ -1,28 +1,31 @@
 {{- /*
-  Origin-side HTTP->HTTPS redirect for the hosts listed here. Only safe once Cloudflare's SSL
-  mode for the zone is Full/Full(strict) -- in Flexible mode Cloudflare always talks plain HTTP
-  to the origin, so an origin-side redirect would just bounce the client back through the edge
-  forever. Each host's own HTTPRoute must attach to the https listener only (not http) once it's
-  added here, or this route and that one both try to own the host on the http listener.
+  Origin-side HTTP->HTTPS redirect, one HTTPRoute per gateway scope that has hosts listed. Only
+  safe once Cloudflare's SSL mode for the zone is Full/Full(strict) -- in Flexible mode Cloudflare
+  always talks plain HTTP to the origin, so an origin-side redirect would just bounce the client
+  back through the edge forever. Each host's own HTTPRoute must attach to that gateway's https
+  listener only (not http) once it's added here, or this route and that one both try to own the
+  host on the http listener.
 */ -}}
-{{- if .Values.httpRedirectHosts }}
+{{- range $scope, $hosts := .Values.httpRedirectHosts }}
+{{- if $hosts }}
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: http-to-https-redirect
-  namespace: {{ .Values.namespace.name }}
+  name: http-to-https-redirect-{{ $scope }}
+  namespace: {{ $.Values.namespace.name }}
   labels:
     app.kubernetes.io/name: gke-gateway
     app.kubernetes.io/component: http-redirect
     app.kubernetes.io/managed-by: Helm
 spec:
   hostnames:
-    {{- toYaml .Values.httpRedirectHosts | nindent 4 }}
+    {{- toYaml $hosts | nindent 4 }}
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: {{ .Values.gateways.external.name }}
-      namespace: {{ .Values.namespace.name }}
+      name: {{ (index $.Values.gateways $scope).name }}
+      namespace: {{ $.Values.namespace.name }}
       sectionName: http
   rules:
     - filters:
@@ -30,4 +33,5 @@ spec:
           requestRedirect:
             scheme: https
             statusCode: 301
+{{- end }}
 {{- end }}
