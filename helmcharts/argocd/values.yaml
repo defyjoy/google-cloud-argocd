@@ -53,7 +53,9 @@ argo-cd:
     httproute:
       enabled: true
       labels: {}
-      annotations: {}
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: argocd.jrclabs.xyz
+        external-dns.alpha.kubernetes.io/class: cloudflare
       parentRefs:
         - group: gateway.networking.k8s.io
           kind: Gateway
