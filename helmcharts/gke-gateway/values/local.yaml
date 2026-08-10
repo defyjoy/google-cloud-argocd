@@ -24,8 +24,8 @@ httpRedirectHosts:
   external:
     - vault.jrclabs.xyz
     - harbor.jrclabs.xyz
-  internal:
     - argocd.jrclabs.xyz
+  internal: []
 
 healthCheckPolicies:
   - name: vault-ui

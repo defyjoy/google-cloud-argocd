@@ -59,7 +59,7 @@ argo-cd:
       parentRefs:
         - group: gateway.networking.k8s.io
           kind: Gateway
-          name: gateway
+          name: gateway-external
           namespace: gateway-system
           sectionName: https
       hostnames:

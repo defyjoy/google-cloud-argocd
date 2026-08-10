@@ -247,7 +247,7 @@ gcloud compute addresses create argocd-gateway-ip \
 
 Public DNS does not depend on this being set: `helmcharts/external-dns` (source
 `gateway-httproute`) reads each Gateway's address directly and publishes it for every hostname
-routed there — `zitadel`, `harbor`, `plane`, `vault` on `gateway-external`. Pinning `addressName`
+routed there — `zitadel`, `harbor`, `plane`, `vault`, `argocd` on `gateway-external`. Pinning `addressName`
 only matters if you need that address to survive a Gateway being deleted and recreated; the
 Cloudflare Tunnel that used to need a fixed target for its own config was removed 2026-08-09.
 
