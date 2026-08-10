@@ -18,15 +18,15 @@ spec:
   # published through the Cloudflare tunnel until that was removed. external-dns resolves the
   # parent Gateway's address, so re-pointing here is what moves the record to the public LB.
   #
-  # http listener only -- the external Gateway has no https listener yet (gke-gateway's
-  # https.enabled is false and cert-manager still issues no certificates), so TLS is
-  # terminated at the Cloudflare edge, not here.
+  # https listener only -- plain HTTP for this host is owned by gke-gateway's
+  # http-to-https-redirect route (httpRedirectHosts), which 301s to here. Attaching this route to
+  # both listeners would leave two routes both claiming the host on the http listener.
   parentRefs:
     - group: gateway.networking.k8s.io
       kind: Gateway
       name: gateway-external
       namespace: gateway-system
-      sectionName: http
+      sectionName: https
   rules:
     - backendRefs:
         - group: ""

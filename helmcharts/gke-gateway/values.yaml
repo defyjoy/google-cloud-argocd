@@ -33,3 +33,11 @@ gateways:
       certificateRefs: []
 
 healthCheckPolicies: []
+
+certificate:
+  enabled: false
+  secretName: gateway-wildcard-tls
+  issuerName: letsencrypt-prod
+  dnsNames: []
+
+httpRedirectHosts: []

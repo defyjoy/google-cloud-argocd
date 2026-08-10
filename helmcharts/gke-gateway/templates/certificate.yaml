@@ -1,0 +1,25 @@
+{{- /*
+  Single wildcard cert for every public hostname on gateway-external, issued via cert-manager's
+  letsencrypt-prod ClusterIssuer (helmcharts/cert-manager) over DNS-01 against Cloudflare -- the
+  same jrclabs.xyz zone external-dns already manages. Lives in gateway-system (not each app's own
+  namespace) so the external Gateway's https listener can reference the resulting Secret without
+  a cross-namespace ReferenceGrant per app.
+*/ -}}
+{{- if .Values.certificate.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certificate.secretName }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: gke-gateway
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/managed-by: Helm
+spec:
+  secretName: {{ .Values.certificate.secretName }}
+  issuerRef:
+    name: {{ .Values.certificate.issuerName }}
+    kind: ClusterIssuer
+  dnsNames:
+    {{- toYaml .Values.certificate.dnsNames | nindent 4 }}
+{{- end }}

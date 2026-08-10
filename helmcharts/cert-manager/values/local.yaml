@@ -1,0 +1,2 @@
+cloudflareApiToken:
+  vaultPath: alarmify/local/cloudflared/token

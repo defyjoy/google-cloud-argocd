@@ -1,5 +1,7 @@
 enabled: true
 
+acmeEmail: joydeepbeyondsky86@gmail.com
+
 cert-manager:
   installCRDs: true
 

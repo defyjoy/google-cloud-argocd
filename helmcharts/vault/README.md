@@ -590,9 +590,11 @@ For issues and questions:
 
 ### The `httproute` values block is unused
 
-> 📌 `templates/httproute.yaml` **hardcodes** `parentRefs` to `istio-gateway`/`istio-system`
-> along with the hostname and path (a Phase 3 special case). The corresponding block in
-> `values.yaml` is inert — editing it changes nothing.
+> 📌 `templates/httproute.yaml` **hardcodes** `parentRefs` to `gateway-external`/`gateway-system`
+> (`sectionName: https`) along with the hostname and path. The corresponding `vault.httproute`
+> block in `values.yaml` is inert — editing it changes nothing. Plain HTTP for
+> `vault.jrclabs.xyz` is handled separately by `helmcharts/gke-gateway`'s
+> `http-to-https-redirect` route, not by this chart.
 
 ### Raft config is embedded HCL
 

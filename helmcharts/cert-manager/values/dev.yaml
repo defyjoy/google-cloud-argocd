@@ -1,3 +1,6 @@
+cloudflareApiToken:
+  vaultPath: alarmify/dev/cloudflared/token
+
 cert-manager:
   prometheus:
     servicemonitor:
