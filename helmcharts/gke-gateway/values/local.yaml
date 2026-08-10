@@ -33,3 +33,8 @@ healthCheckPolicies:
     namespace: vault
     port: 8200
     requestPath: "/v1/sys/health?standbyok=true"
+  - name: harbor-core
+    targetService: local-harbor-core
+    namespace: harbor
+    port: 8080
+    requestPath: "/api/v2.0/ping"
