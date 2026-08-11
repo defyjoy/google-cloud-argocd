@@ -1,0 +1,3 @@
+external-dns:
+  txtOwnerId: external-dns-google-local
+  txtPrefix: external-dns-google-local

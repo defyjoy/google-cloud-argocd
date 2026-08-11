@@ -1,0 +1,29 @@
+# Layers on top of values.yaml (Cloudflare defaults) to run this instance against the
+# jrclabs-xyz-private zone instead. No cloudflareApiToken key here, so
+# templates/cloudflare-api-token-secret.yaml (guarded on that key) renders nothing.
+external-dns:
+  txtOwnerId: external-dns-google
+  txtPrefix: external-dns-google
+
+  annotationFilter: external-dns.alpha.kubernetes.io/class=google
+
+  provider:
+    name: google
+
+  # zone-id-filter + google-zone-visibility pin this to the private zone regardless of the
+  # annotation filter above, so it stays out of any public GCP zone even if one is ever
+  # created (create_public_zone is false today). No Cloudflare credential exists in this
+  # release either (env: [] below), so it can't reach Cloudflare regardless.
+  extraArgs:
+    - --google-project=aviatize-sandbox
+    - --zone-id-filter=jrclabs-xyz-private
+    - --google-zone-visibility=private
+
+  env: []
+
+  serviceAccount:
+    annotations:
+      argocd.argoproj.io/managed: "true"
+      # live/dns/dns-service-account.tf's workload_identity_members still needs this
+      # release's KSA name (<cluster>-external-dns-google) added before this authenticates.
+      iam.gke.io/gcp-service-account: dnsadmin@aviatize-sandbox.iam.gserviceaccount.com
