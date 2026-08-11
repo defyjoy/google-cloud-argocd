@@ -1,19 +1,28 @@
 # Layers on top of values.yaml (Cloudflare defaults) to run this instance against the
 # jrclabs-xyz-private zone instead. No cloudflareApiToken key here, so
 # templates/cloudflare-api-token-secret.yaml (guarded on that key) renders nothing.
+#
+# annotationFilter is deliberately blank, overriding the base's class=cloudflare: the private
+# zone shadows the public one for anyone resolving through inbound_forwarding_networks (VPN
+# clients — see docs/vpn-runbook.md in the terraform repo), and an authoritative Cloud DNS
+# zone answers NXDOMAIN for names it doesn't hold rather than falling through to the public
+# internet. So every jrclabs.xyz HTTPRoute needs a record here, not just the ones explicitly
+# marked class=google (grafana/tempo-otlp/vminsert, which have no public counterpart at all).
+# domainFilters (jrclabs.xyz, from the base values) is what keeps this instance scoped, not
+# the annotation.
 external-dns:
   txtOwnerId: external-dns-google
   txtPrefix: external-dns-google
 
-  annotationFilter: external-dns.alpha.kubernetes.io/class=google
+  annotationFilter: ""
 
   provider:
     name: google
 
-  # zone-id-filter + google-zone-visibility pin this to the private zone regardless of the
-  # annotation filter above, so it stays out of any public GCP zone even if one is ever
-  # created (create_public_zone is false today). No Cloudflare credential exists in this
-  # release either (env: [] below), so it can't reach Cloudflare regardless.
+  # zone-id-filter + google-zone-visibility pin this to the private zone regardless of which
+  # HTTPRoutes match above, so it stays out of any public GCP zone even if one is ever created
+  # (create_public_zone is false today). No Cloudflare credential exists in this release
+  # either (env: [] below), so it can't reach Cloudflare regardless.
   extraArgs:
     - --google-project=aviatize-sandbox
     - --zone-id-filter=jrclabs-xyz-private
@@ -24,6 +33,4 @@ external-dns:
   serviceAccount:
     annotations:
       argocd.argoproj.io/managed: "true"
-      # live/dns/dns-service-account.tf's workload_identity_members still needs this
-      # release's KSA name (<cluster>-external-dns-google) added before this authenticates.
       iam.gke.io/gcp-service-account: dnsadmin@aviatize-sandbox.iam.gserviceaccount.com
