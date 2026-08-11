@@ -176,6 +176,11 @@ kube-prometheus-stack:
             name: gateway
             namespace: gateway-system
             sectionName: http
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: gateway
+            namespace: gateway-system
+            sectionName: https
 
   alertmanager:
     enabled: true

@@ -130,6 +130,11 @@ kube-prometheus-stack:
             name: gateway
             namespace: gateway-system
             sectionName: http
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: gateway
+            namespace: gateway-system
+            sectionName: https
 ```
 
 Gateway API `HTTPRoute` (still **BETA** in the Grafana subchart) replaces the Ingress, parented to
