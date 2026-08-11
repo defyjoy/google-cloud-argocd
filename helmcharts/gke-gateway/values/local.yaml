@@ -41,5 +41,5 @@ healthCheckPolicies:
   - name: grafana
     targetService: kube-prometheus-stack-grafana
     namespace: kube-prometheus-stack
-    port: 80
+    port: 3000
     requestPath: "/api/health"
