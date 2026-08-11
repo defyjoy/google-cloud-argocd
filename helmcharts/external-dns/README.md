@@ -440,3 +440,280 @@ ownership of the same records.
 `values/local.yaml` has no overrides today — management's config is exactly the shared defaults.
 
 > 📉 CPU limit halved on 2026-07-11: 24h peak usage 2.0m, per VictoriaMetrics.
+
+### Incident timeline: getting `grafana.jrclabs.xyz` reachable end to end
+
+Full chronological record of one debugging session that touched routing, health checks, TLS,
+VPN DNS, and finally this chart. Kept as one sequence because each event's fix is what exposed
+the next event's bug — none of these were independent.
+
+**Event 1 — external-dns never created `grafana.jrclabs.xyz` at all**
+
+Only one external-dns release existed at the time: `local-external-dns`, Cloudflare provider,
+`--cloudflare-proxied`. It matched grafana's route (`class: cloudflare` was the only option
+back then) and tried to create a **proxied** public record pointing at the internal gateway's
+private IP:
+
+```
+level=error msg="fallback: individual CREATE failed: POST .../dns_records: 400 Bad Request
+{\"errors\":[{\"code\":9003,\"message\":\"Target 10.40.0.14 is not allowed for a proxied record.\"}]}"
+action=CREATE content=10.40.0.14 record=grafana.jrclabs.xyz
+```
+
+Cloudflare rejects proxied (orange-cloud) records pointing at RFC1918 addresses. This retried
+and failed on every `--interval=1m` reconcile, forever. Fix: deploy the `local-external-dns-google`
+release (`values/google.yaml`, this chart) targeting `jrclabs-xyz-private` instead.
+
+**Event 2 — the new Google release still didn't pick up grafana**
+
+Deploying the release wasn't enough: `local-external-dns-google`'s `annotationFilter` was
+`class=google` at the time, but grafana's HTTPRoute annotation still said `class: cloudflare`
+— leftover from Event 1, before the Google release existed to target instead:
+
+```yaml
+# kube-prometheus-stack's HTTPRoute — before
+annotations:
+  external-dns.alpha.kubernetes.io/class: cloudflare   # wrong release now
+```
+
+Fix: `class: cloudflare` → `class: google` on grafana's route (and `tempo-otlp`, `vminsert` —
+same internal-gateway pattern). The private-zone record finally got created.
+
+**Event 3 — record existed, `curl` still failed with `no healthy upstream`**
+
+```console
+$ curl --resolve grafana.jrclabs.xyz:80:10.40.0.14 http://grafana.jrclabs.xyz
+HTTP/1.1 503 Service Unavailable
+no healthy upstream
+```
+
+The pod was `Running`/`3/3 Ready` with a healthy Kubernetes endpoint — but the GCP-level load
+balancer health check (`HealthCheckPolicy` in `helmcharts/gke-gateway`) was checking the wrong
+port:
+
+```yaml
+# helmcharts/gke-gateway/values/local.yaml — before
+- name: grafana
+  targetService: kube-prometheus-stack-grafana
+  namespace: kube-prometheus-stack
+  port: 80          # the Service's port — nothing listens here on the pod
+  requestPath: "/api/health"
+```
+
+Grafana's Service exposes `80` but forwards to container port `3000`; GKE Gateway health
+checks hit the pod's actual port directly, not the Service port (confirmed against the two
+correct sibling entries in the same file — `vault-ui` and `harbor-core` both already used
+their real container ports). Fix:
+
+```yaml
+# after
+    port: 3000
+```
+
+**Event 4 — `curl https://` returned `fault filter abort`**
+
+```console
+$ curl -k --resolve grafana.jrclabs.xyz:443:10.40.0.14 https://grafana.jrclabs.xyz
+HTTP/2 404
+fault filter abort
+```
+
+```console
+$ kubectl get gateway gateway -n gateway-system -o jsonpath='{range .status.listeners[*]}{.name}: {.attachedRoutes}{"\n"}{end}'
+http: 3
+https: 0
+```
+
+TLS terminated fine (a valid `*.jrclabs.xyz` cert was served) but the `https` listener had
+**zero** attached routes — grafana's `parentRefs` only listed `sectionName: http`. `fault
+filter abort` is GKE Gateway's response when TLS succeeds but nothing in the URL map matches.
+Fix: add a second `parentRefs` entry with `sectionName: https` (kube-prometheus-stack,
+tempo-otlp, vminsert). No new certificate needed — `gateway-wildcard-tls` already covered
+`*.jrclabs.xyz` and issues via a Cloudflare DNS-01 solver, which never needed to reach the
+internal endpoint at all:
+
+```yaml
+solvers:
+- dns01:
+    cloudflare:
+      apiTokenSecretRef: {name: cloudflare-api-token, key: api-token}
+```
+
+**Event 5 — the record existed, but nothing on the laptop could even ask for it**
+
+Separately: `curl https://grafana.jrclabs.xyz` failed to resolve at all, VPN connected or not.
+The private zone only answers queries from inside the VPC (a VM's metadata-server resolver);
+routing a VPN client into the VPC's CIDRs doesn't grant it DNS resolution. Fixed on the
+terraform side — Cloud DNS **inbound forwarding**, a reserved resolver IP inside the routed
+subnet:
+
+```hcl
+# modules/dns — new resource
+resource "google_dns_policy" "inbound_forwarding" {
+  for_each                  = toset(var.inbound_forwarding_networks)
+  enable_inbound_forwarding = true
+  networks { network_url = data.google_compute_network.private_visibility[each.value].self_link }
+}
+```
+
+```console
+$ gcloud compute addresses list --filter="purpose=DNS_RESOLVER"
+10.40.0.15   yeti-hub-us-central1 (nodes)   <- already in Pritunl's routed CIDRs
+```
+
+**Event 6 — reserving the IP did nothing until two more layers were fixed**
+
+Pritunl had to be told to push it (`Servers → Settings → DNS Server: 10.40.0.15`,
+`DNS Search Domain: jrclabs.xyz`, manual admin-UI step — self-hosted CE has no API). Even
+then, the client (Tunnelblick, not the official Pritunl app — confirmed via `ps aux | grep
+openvpn`) silently half-applied it:
+
+```
+Retrieved from OpenVPN: name server(s) [ 10.40.0.15 ], ... search domain(s) [ jrclabs.xyz ]
+Did not change DNS ServerAddresses setting of '192.168.1.100' (but re-set it)
+DNS servers '192.168.1.100' were set manually
+```
+
+Tunnelblick treats a manually-configured local DNS server as intentional and won't override
+it — only the search domain got applied. Fix, per Tunnelblick config: **Advanced →
+"Connecting & Disconnecting" → check "Allow changes to manually-set network settings."**
+After reconnecting:
+
+```console
+$ dig grafana.jrclabs.xyz +short
+10.40.0.14
+$ curl -sk https://grafana.jrclabs.xyz -o /dev/null -w "%{http_code}\n"
+200
+```
+
+Grafana was reachable, end to end, for the first time.
+
+**Event 7 — fixing Event 5/6 broke `argocd`, `vault`, `harbor`**
+
+The moment a VPN client actually started querying `jrclabs-xyz-private` (Event 6), every
+public-only hostname in that same domain broke, because the zone is authoritative:
+
+```console
+$ dig argocd.jrclabs.xyz @10.40.0.15
+;; ->>HEADER<<- status: NXDOMAIN, flags: qr aa rd
+;; AUTHORITY SECTION:
+jrclabs.xyz. 300 IN SOA ns-gcp-private.googleapis.com. ...
+```
+
+This was Event 2's `annotationFilter: class=google` again, from the other side: `argocd`,
+`vault`, `harbor` only ever carried `class: cloudflare`, so the Google release had never
+mirrored them into the private zone, and nothing had ever queried that zone for them until
+now. Rejected fix: static `private_recordsets` in Terraform (drifts from the real LB IP,
+breaks the "everything is sourced from the actual object state" pattern every other record in
+this system follows). Actual fix — detailed below — clear `annotationFilter` entirely so this
+release mirrors every `jrclabs.xyz` HTTPRoute, not just the ones someone remembered to tag.
+
+### Two releases per cluster: Cloudflare (public) + Google (private zone)
+
+This chart is deployed **twice per cluster**:
+
+| Release | Values | Provider | Zone | Annotation it watches |
+|---|---|---|---|---|
+| `local-external-dns` / `dev-external-dns` | `values.yaml` (defaults, this README) | `cloudflare` | Cloudflare's public `jrclabs.xyz` | `class: cloudflare` |
+| `local-external-dns-google` / `dev-external-dns-google` | `values/google.yaml` + `values/{local,dev}-google.yaml` | `google` | `jrclabs-xyz-private` (Cloud DNS, VPC-internal — see terraform repo's `modules/dns`) | *none* — see below |
+
+Both watch the same `domainFilters: [jrclabs.xyz]`; what differs is which zone each one
+writes to (`--zone-id-filter=jrclabs-xyz-private` pins the Google release) and which
+Kubernetes objects each one is allowed to act on.
+
+#### The bug: `class=google` silently starved the private zone
+
+`values/google.yaml` originally filtered like this, mirroring the Cloudflare release's
+pattern:
+
+```yaml
+# values/google.yaml — BEFORE
+external-dns:
+  annotationFilter: external-dns.alpha.kubernetes.io/class=google
+```
+
+That looks symmetric with the Cloudflare release, but it isn't the same kind of filter. The
+Cloudflare release is the *only* thing that can ever write to the public zone, so its filter
+just decides *if* a host gets a public record at all. The Google release's filter decides
+whether a host gets a **private-zone mirror** — and every host was implicitly assumed to want
+one, per the design already documented in the terraform repo:
+
+```
+# live/dns/terraform.tfvars.example
+# The private zone shadows the public one inside the VPCs, so anything above that must
+# still resolve in-VPC has to be repeated here — pointing at internal addresses.
+```
+
+`argocd`, `vault`, and `harbor` only ever carried `class: cloudflare`:
+
+```yaml
+# a real HTTPRoute in this cluster, unchanged by this fix
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: argocd.jrclabs.xyz
+    external-dns.alpha.kubernetes.io/class: cloudflare   # never matched class=google
+```
+
+— so with the old filter, the Google release skipped them entirely. `jrclabs-xyz-private` is
+an **authoritative** zone, so a client resolving through it for one of these hosts didn't get
+a fallback to the public internet, it got a hard, authoritative NXDOMAIN:
+
+```console
+$ dig argocd.jrclabs.xyz @10.40.0.15
+
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 61635
+;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+
+;; AUTHORITY SECTION:
+jrclabs.xyz.   300  IN  SOA  ns-gcp-private.googleapis.com. cloud-dns-hostmaster.google.com. ...
+```
+
+The `aa` flag is the tell — that's Cloud DNS itself saying "no such name," not a timeout or a
+wrong resolver. This sat broken from the day the Google release was added; it had **zero**
+live impact until something actually started querying `jrclabs-xyz-private` from outside the
+VPC — which is exactly what the terraform repo's `docs/vpn-runbook.md` ("DNS resolution for
+VPN clients") work did, by standing up Cloud DNS inbound forwarding for VPN clients.
+
+#### The fix
+
+```yaml
+# values/google.yaml — AFTER
+external-dns:
+  annotationFilter: ""   # domainFilters (jrclabs.xyz) is what scopes this release now
+```
+
+`--zone-id-filter=jrclabs-xyz-private` and `--google-zone-visibility=private` (still in
+`extraArgs`, unchanged) keep this release confined to the private zone regardless — clearing
+`annotationFilter` only changes *which HTTPRoutes it's allowed to read*, not *where it's
+allowed to write*. With no annotation filter, every `jrclabs.xyz` HTTPRoute — Cloudflare-only
+ones included — gets mirrored into the private zone on the next reconcile (`interval: 1m`,
+`triggerLoopOnEvent: true`, from the base `values.yaml`):
+
+```console
+$ kubectl logs -n external-dns deploy/local-external-dns-google | grep argocd
+time="..." level=info msg="Changing record." action=CREATE record=argocd.jrclabs.xyz ttl=300 type=A zone=jrclabs-xyz-private
+
+$ dig argocd.jrclabs.xyz @10.40.0.15 +short
+35.209.80.67
+```
+
+#### Diagnosing this class of bug in general
+
+```bash
+# Find the inbound forwarding IP (terraform repo's live/dns):
+gcloud compute addresses list --filter="purpose=DNS_RESOLVER"
+
+# Query the private zone directly, bypassing whatever the client's default resolver is doing:
+dig <host>.jrclabs.xyz @<forwarder-ip>
+```
+
+`flags: aa` + `NXDOMAIN` + a `SOA jrclabs.xyz.` in `AUTHORITY` → the private zone itself has
+no record for that name. Check this release's `annotationFilter` and its logs
+(`kubectl logs -n external-dns deploy/local-external-dns-google`) before assuming a routing,
+firewall, or client DNS-config problem — those all fail differently (timeouts, `SERVFAIL`,
+wrong IPs), not a clean authoritative NXDOMAIN.
+
+See the terraform repo's `docs/vpn-runbook.md` ("DNS resolution for VPN clients") for the
+other half of this story — reserving and pushing the forwarding IP, and the client-side
+gotchas (Pritunl client, Tunnelblick) that determine whether a VPN client even queries this
+release's zone at all.
