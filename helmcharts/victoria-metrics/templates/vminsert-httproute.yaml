@@ -27,7 +27,7 @@ metadata:
     app.kubernetes.io/component: vminsert-httproute
   annotations:
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.vmcluster.vminsert.externalExposure.hostname | quote }}
-    external-dns.alpha.kubernetes.io/class: cloudflare
+    external-dns.alpha.kubernetes.io/class: google
 spec:
   hostnames:
     - {{ .Values.vmcluster.vminsert.externalExposure.hostname | quote }}

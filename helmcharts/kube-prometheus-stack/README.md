@@ -121,7 +121,7 @@ kube-prometheus-stack:
         enabled: true
         annotations:
           external-dns.alpha.kubernetes.io/hostname: grafana.jrclabs.xyz
-          external-dns.alpha.kubernetes.io/class: cloudflare
+          external-dns.alpha.kubernetes.io/class: google
         hostnames:
           - grafana.jrclabs.xyz
         parentRefs:

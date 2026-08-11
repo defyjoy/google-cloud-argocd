@@ -30,7 +30,7 @@ metadata:
     app.kubernetes.io/component: tempo-otlp-httproute
   annotations:
     external-dns.alpha.kubernetes.io/hostname: {{ .Values.externalExposure.hostname | quote }}
-    external-dns.alpha.kubernetes.io/class: cloudflare
+    external-dns.alpha.kubernetes.io/class: google
 spec:
   hostnames:
     - {{ .Values.externalExposure.hostname | quote }}
