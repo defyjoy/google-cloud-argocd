@@ -34,7 +34,7 @@ correct and ready the moment a grant exists.
 ## Overview
 
 Grafana's built-in `generic_oauth` provider points at the public Zitadel
-issuer. A user hitting `https://grafana.home.arpa` gets a "Sign in with
+issuer. A user hitting `http://grafana.jrclabs.xyz` gets a "Sign in with
 Zitadel" button; the browser completes the code flow against
 `zitadel.jrclabs.xyz` and lands back on the LAN hostname. Both hostnames
 work in the same flow because the browser is on the LAN while the redirect
@@ -66,7 +66,7 @@ created by hand in the UI.
 Grafana fixes its own callback path. The Terraform local is:
 
 ```hcl
-grafana_redirect_uris = ["https://grafana.home.arpa/login/generic_oauth"]
+grafana_redirect_uris = ["http://grafana.jrclabs.xyz/login/generic_oauth"]
 ```
 
 `/login/generic_oauth` is Grafana's, not ours, and the host half must equal
@@ -167,7 +167,7 @@ The rest of the provider config:
 ```yaml
 grafana.ini:
   server:
-    root_url: https://grafana.home.arpa
+    root_url: http://grafana.jrclabs.xyz
   auth.generic_oauth:
     enabled: true
     name: Zitadel

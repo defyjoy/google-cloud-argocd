@@ -139,7 +139,7 @@ kube-prometheus-stack:
 
     grafana.ini:
       server:
-        root_url: https://grafana.home.arpa
+        root_url: http://grafana.jrclabs.xyz
       auth.generic_oauth:
         enabled: false
         name: Zitadel
@@ -165,19 +165,17 @@ kube-prometheus-stack:
     route:
       main:
         enabled: true
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: grafana.jrclabs.xyz
+          external-dns.alpha.kubernetes.io/class: cloudflare
         hostnames:
-          - grafana.home.arpa
+          - grafana.jrclabs.xyz
         parentRefs:
           - group: gateway.networking.k8s.io
             kind: Gateway
             name: gateway
             namespace: gateway-system
             sectionName: http
-          - group: gateway.networking.k8s.io
-            kind: Gateway
-            name: gateway
-            namespace: gateway-system
-            sectionName: https
 
   alertmanager:
     enabled: true

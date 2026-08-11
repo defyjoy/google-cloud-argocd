@@ -119,13 +119,27 @@ kube-prometheus-stack:
     route:
       main:
         enabled: true
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: grafana.jrclabs.xyz
+          external-dns.alpha.kubernetes.io/class: cloudflare
         hostnames:
-          - grafana.home.arpa
+          - grafana.jrclabs.xyz
+        parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: gateway
+            namespace: gateway-system
+            sectionName: http
 ```
 
-Gateway API `HTTPRoute` (still **BETA** in the Grafana subchart) replaces the Ingress — Phase 2
-batch 3 (infra tools) of the Envoy Gateway → Istio Gateway migration. `grafana.home.arpa` was
-already in the stepca cert's SAN list, so no reissuance was needed.
+Gateway API `HTTPRoute` (still **BETA** in the Grafana subchart) replaces the Ingress, parented to
+the internal `gateway` (`gke-l7-rilb`) like every other route in this repo — see
+`helmcharts/gke-gateway`'s README for why. Only an `http` `sectionName` is used: both Gateways'
+`https` listener is `enabled: false` with no `certificateRefs` (no `ClusterIssuer` exists yet), so
+a route parented to `sectionName: https` would attach and then dangle. The route previously
+carried both `http` and `https` parentRefs and pointed at the stale Proxmox-era `grafana.home.arpa`
+hostname — neither the Istio mesh nor the `*.home.arpa` DNS/cert setup they depended on exist in
+this fork.
 
 ### Grafana SSO (Zitadel OIDC)
 
@@ -140,7 +154,7 @@ kube-prometheus-stack:
         clientSecretProperty: ZITADEL_GRAFANA_CLIENT_SECRET
     grafana.ini:
       server:
-        root_url: https://grafana.home.arpa
+        root_url: http://grafana.jrclabs.xyz
       auth.generic_oauth:
         enabled: false
 ```
