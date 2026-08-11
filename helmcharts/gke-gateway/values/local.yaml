@@ -38,3 +38,8 @@ healthCheckPolicies:
     namespace: harbor
     port: 8080
     requestPath: "/api/v2.0/ping"
+  - name: grafana
+    targetService: kube-prometheus-stack-grafana
+    namespace: kube-prometheus-stack
+    port: 80
+    requestPath: "/api/health"
