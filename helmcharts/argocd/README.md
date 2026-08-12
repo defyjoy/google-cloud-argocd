@@ -748,13 +748,13 @@ argo-cd:
   controller:
     resources:
       requests:
-        cpu: 1000m
+        cpu: 500m
         memory: 2048Mi
       limits:
         memory: 4096Mi
 
   repoServer:
-    replicas: 3
+    replicas: 2
     resources:
       requests:
         cpu: 500m
@@ -762,6 +762,17 @@ argo-cd:
       limits:
         memory: 1024Mi
 ```
+
+**2026-08-12:** `controller.resources.requests.cpu` was dropped from `1000m` to `500m`, and
+`repoServer.replicas` from `3` to `2`, on a 3-node `e2-standard-2` cluster where GKE system
+daemonsets plus 3 repo-server replicas left no single node with 1000m of free, unfragmented CPU —
+`argocd-application-controller-0` sat `Pending` (`Insufficient cpu`) while the node pool's
+autoscaler was capped at `maxNodeCount: 3` and couldn't add a node to absorb it. Actual node CPU
+utilization was 6–8%; this was a scheduling/bin-packing problem, not a real load problem.
+
+This trades some of the burst headroom described above for schedulability on small node pools. If
+sync latency regresses or throttling reappears (check via the `cadvisor` command below), the fix is
+more/bigger nodes, not raising this back past what the node pool can actually place.
 
 This is the one place in the repo that breaks the "limits are 2× requests" convention, because on
 2026-08-06 that convention made Argo CD nearly unusable.

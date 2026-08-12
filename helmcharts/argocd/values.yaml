@@ -87,7 +87,7 @@ argo-cd:
   controller:
     resources:
       requests:
-        cpu: 1000m
+        cpu: 500m
         memory: 2048Mi
       limits:
         memory: 4096Mi
@@ -107,7 +107,7 @@ argo-cd:
         interval: 30s
 
   repoServer:
-    replicas: 3
+    replicas: 2
 
     resources:
       requests:
