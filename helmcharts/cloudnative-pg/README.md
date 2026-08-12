@@ -106,3 +106,23 @@ CPU quantities must be whole millicores.
 > 📌 The second cut was originally recorded as targeting a `63m` limit, but the live value is
 > `26m` — i.e. 2× requests, matching this repo's usual limit policy. `26m` is what is
 > deployed; treat the `63m` figure as superseded.
+
+### Node scheduling — Postgres instances pinned off spot nodes
+
+**2026-08-12:** `templates/pgsql-cluster.yaml`'s `spec.affinity` (see the "Why it is declared
+inside the Cluster" callout above for why scheduling lives there, not in `values.yaml`) now also
+sets:
+
+```yaml
+  affinity:
+    nodeSelector:
+      storage: persistent
+```
+
+The cluster's node pool mixes spot nodes (reclaimed by GCP with little warning) with a stable
+"system" group; when spot nodes were terminated, the `postgresql-cluster-*` PVC-backed instances
+went `Pending`. `storage: persistent` is a label applied directly to the system node group outside
+this repo (same change made in `vault`, `harbor`, `nats`, `tempo`, and `victoria-metrics`). This is
+hardcoded directly in the template rather than exposed as a value, consistent with how `resources`
+and the rest of `spec.affinity` are already handled in this file — see "Wrapper pattern" above for
+why this chart's Cluster manifest isn't values-driven.

@@ -173,3 +173,14 @@ harbor:
     exporter: { path: /metrics, port: 8001 }
   logLevel: info
 ```
+
+### Node scheduling — PVC-backed components pinned off spot nodes
+
+**2026-08-12:** `jobservice`, `registry`, `trivy`, `database.internal`, and `redis.internal` — the
+five components with a PVC — all got `nodeSelector: { storage: persistent }`. The cluster's node
+pool mixes spot nodes (reclaimed by GCP with little warning) with a stable "system" group; when
+spot nodes were terminated, every PVC-backed pod cluster-wide went `Pending` waiting for its volume
+to reattach somewhere. `storage: persistent` is a label applied directly to the system node group
+outside this repo (see the same change in `vault`, `nats`, `tempo`, `cloudnative-pg`, and
+`victoria-metrics`). `core` (Harbor's stateless API/UI component) wasn't touched since it carries no PVC and can
+tolerate landing on spot.

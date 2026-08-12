@@ -280,6 +280,19 @@ nats:
     limits:   { memory: 512Mi, cpu: 200m }
 ```
 
+### Node scheduling — pinned off spot nodes
+
+**2026-08-12:** `podTemplate.merge.spec.nodeSelector` sets `storage: persistent` on the main NATS
+StatefulSet (it owns the JetStream file-store PVC). The cluster's node pool mixes spot nodes
+(reclaimed by GCP with little warning) with a stable "system" group; when spot nodes were
+terminated, PVC-backed pods cluster-wide went `Pending`. `storage: persistent` is a label applied
+directly to the system node group outside this repo (same change made in `vault`, `harbor`,
+`tempo`, `cloudnative-pg`, and `victoria-metrics`).
+
+Note the top-level `nats.nodeSelector: {}` field elsewhere in `values.yaml` is dead — this chart's
+upstream templates only read `podTemplate.merge`/`.patch` (a generic JSON-merge-patch target), not
+a plain `nodeSelector` key, so setting that field silently does nothing.
+
 ---
 
 ## dev overlay — `values/dev.yaml`

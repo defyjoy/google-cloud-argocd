@@ -162,9 +162,27 @@ vmcluster:
   vminsert:
     externalExposure:
       enabled: true
+  vmstorage:
+    nodeSelector:
+      storage: persistent
+  vmselect:
+    nodeSelector:
+      storage: persistent
 ```
 
 Cross-cluster remote-write from dev was **enabled 2026-07-19** (Phase 6, §23).
+
+**2026-08-12:** `vmstorage`/`vmselect` `nodeSelector` added — **management-only, deliberately not
+in base `values.yaml`.** This cluster's node pool mixes spot nodes (reclaimed by GCP with little
+warning) with a stable "system" group labelled `storage: persistent` outside this repo; when spot
+nodes were terminated, `vmstorage-db-*` and `vmselect-cachedir-*` PVC-backed pods went `Pending`.
+Unlike `vault`/`harbor`/`nats`/`tempo`/`cloudnative-pg` (all management-only, so this went straight
+in their base `values.yaml`), **victoria-metrics deploys to both clusters** — putting this in the
+base file would apply it to dev too, where the `storage: persistent` label doesn't exist, and every
+`vmcluster` pod there would go permanently `Pending`. `vminsert` wasn't touched since it carries no
+PVC. `templates/vmcluster.yaml` passes `vmcluster.vmstorage.nodeSelector` /
+`vmcluster.vmselect.nodeSelector` straight through to the `VMCluster` CR; both default to `{}` in
+base `values.yaml`.
 
 > ⚠️ **Requires `kv/victoria-metrics/remote-write-token` populated in Vault first** (the
 > human step above), or the ExternalSecret fails to resolve and vmauth's VMUser has no token

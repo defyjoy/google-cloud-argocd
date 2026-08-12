@@ -117,3 +117,18 @@ tempo:
 
 Homelab trace volume is small, and retention is left at the chart default of **24h**, so this
 only ever holds about a day's worth of spans.
+
+### Node scheduling — pinned off spot nodes
+
+**2026-08-12:**
+
+```yaml
+tempo:
+  nodeSelector:
+    storage: persistent
+```
+
+The cluster's node pool mixes spot nodes (reclaimed by GCP with little warning) with a stable
+"system" group; when spot nodes were terminated, `storage-local-tempo-0`'s PVC-backed pod went
+`Pending`. `storage: persistent` is a label applied directly to the system node group outside this
+repo (same change made in `vault`, `harbor`, `nats`, `cloudnative-pg`, and `victoria-metrics`).

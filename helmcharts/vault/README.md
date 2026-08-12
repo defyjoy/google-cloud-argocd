@@ -623,3 +623,14 @@ The 2026-07-10 trim also freed request headroom to unblock `alarmify-ui` /
 
 `seccompProfile` is set on both the pod and the injector container — the chart's own defaults
 omit the profile, which fails `restricted` PodSecurity.
+
+### `server.nodeSelector` pins vault to the `storage: persistent` node group
+
+**2026-08-12:** the cluster's node pool mixes spot nodes (cheap, but reclaimed by GCP with little
+warning) and a stable "system" node group. When spot nodes were terminated, all three `local-vault`
+replicas went `Pending` — `data-local-vault-*` PVCs need a node that isn't about to disappear.
+`server.nodeSelector` now requires `storage: persistent`, a label applied directly to the system
+node group's nodes (outside this repo — see the matching notes in `harbor`, `nats`, `tempo`,
+`cloudnative-pg`, and `victoria-metrics`'s READMEs, all changed together for the same reason). Only
+components backed by a PVC got this treatment; stateless components were left free to land anywhere,
+including spot.
