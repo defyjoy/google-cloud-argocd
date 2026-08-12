@@ -213,7 +213,8 @@ vault:
                 component: server
             topologyKey: kubernetes.io/hostname
 
-    nodeSelector: {}
+    nodeSelector:
+      storage: persistent
 
     tolerations: []
 

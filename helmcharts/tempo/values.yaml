@@ -5,6 +5,9 @@ externalExposure:
   hostname: tempo-otlp.jrclabs.xyz
 
 tempo:
+  nodeSelector:
+    storage: persistent
+
   tempo:
     resources:
       requests:

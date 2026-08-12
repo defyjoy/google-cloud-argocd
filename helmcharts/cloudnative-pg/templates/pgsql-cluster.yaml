@@ -133,3 +133,5 @@ spec:
     enablePodAntiAffinity: true
     podAntiAffinityType: preferred
     topologyKey: kubernetes.io/hostname
+    nodeSelector:
+      storage: persistent

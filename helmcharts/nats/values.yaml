@@ -78,6 +78,10 @@ nats:
       enabled: false
 
   podTemplate:
+    merge:
+      spec:
+        nodeSelector:
+          storage: persistent
     patch:
       - $tplYamlSpread: |
           {{- if .Values.authUsers.enabled }}

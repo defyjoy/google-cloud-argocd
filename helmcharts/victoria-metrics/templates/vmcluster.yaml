@@ -24,6 +24,10 @@ spec:
           resources:
             requests:
               storage: {{ .Values.vmcluster.vmstorage.storage }}
+    {{- with .Values.vmcluster.vmstorage.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     resources:
       {{- toYaml .Values.vmcluster.vmstorage.resources | nindent 6 }}
 
@@ -42,6 +46,10 @@ spec:
           resources:
             requests:
               storage: {{ .Values.vmcluster.vmselect.cacheStorage }}
+    {{- with .Values.vmcluster.vmselect.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     resources:
       {{- toYaml .Values.vmcluster.vmselect.resources | nindent 6 }}
 {{- end }}

@@ -26,6 +26,12 @@ harbor:
   registry:
     relativeurls: true
     replicas: 1
+    nodeSelector:
+      storage: persistent
+
+  jobservice:
+    nodeSelector:
+      storage: persistent
 
   persistence:
     enabled: true
@@ -76,6 +82,8 @@ harbor:
       password: "change-me"
       maxIdleConns: 50
       maxOpenConns: 1000
+      nodeSelector:
+        storage: persistent
     external:
       host: "cloudnative-pg.cloudnative-pg.svc.cluster.local"
       port: "5432"
@@ -88,6 +96,8 @@ harbor:
     type: internal
     internal:
       password: ""
+      nodeSelector:
+        storage: persistent
     external:
       addr: "192.168.1.3:6379"
       password: ""
@@ -98,6 +108,8 @@ harbor:
     skipUpdate: false
     offlineScan: false
     securityCheck: "vuln"
+    nodeSelector:
+      storage: persistent
     resources:
       requests:
         cpu: 50m

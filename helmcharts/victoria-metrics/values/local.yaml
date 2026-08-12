@@ -11,3 +11,9 @@ vmcluster:
     externalExposure:
       enabled: true
       hostname: vminsert.jrclabs.xyz
+  vmstorage:
+    nodeSelector:
+      storage: persistent
+  vmselect:
+    nodeSelector:
+      storage: persistent

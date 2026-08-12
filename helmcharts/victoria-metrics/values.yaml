@@ -8,6 +8,7 @@ vmcluster:
     replicaCount: 2
     storageClassName: standard-rwo
     storage: 20Gi
+    nodeSelector: {}
     resources:
       requests:
         cpu: 250m
@@ -32,6 +33,7 @@ vmcluster:
     replicaCount: 2
     cacheStorage: 2Gi
     storageClassName: standard-rwo
+    nodeSelector: {}
     resources:
       requests:
         cpu: 100m
