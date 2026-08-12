@@ -757,18 +757,21 @@ argo-cd:
     replicas: 2
     resources:
       requests:
-        cpu: 500m
+        cpu: 300m
         memory: 256Mi
       limits:
         memory: 1024Mi
 ```
 
-**2026-08-12:** `controller.resources.requests.cpu` was dropped from `1000m` to `500m`, and
-`repoServer.replicas` from `3` to `2`, on a 3-node `e2-standard-2` cluster where GKE system
+**2026-08-12:** on a 3-node `e2-standard-2` cluster capped at `maxNodeCount: 3`, GKE system
 daemonsets plus 3 repo-server replicas left no single node with 1000m of free, unfragmented CPU —
-`argocd-application-controller-0` sat `Pending` (`Insufficient cpu`) while the node pool's
-autoscaler was capped at `maxNodeCount: 3` and couldn't add a node to absorb it. Actual node CPU
-utilization was 6–8%; this was a scheduling/bin-packing problem, not a real load problem.
+`argocd-application-controller-0` sat `Pending` (`Insufficient cpu`) with actual node utilization at
+6–8%: a bin-packing problem, not a load problem. Fixed by dropping `controller.requests.cpu`
+`1000m`→`500m` and `repoServer.replicas` `3`→`2`.
+
+Nodes were still at 97-98% requested afterward (other apps were fragmenting headroom too), leaving
+`vault` `Pending` — its required pod anti-affinity means each of its 3 replicas needs its own free
+100m on a different node. Fixed by dropping `repoServer.requests.cpu` `500m`→`300m`.
 
 This trades some of the burst headroom described above for schedulability on small node pools. If
 sync latency regresses or throttling reappears (check via the `cadvisor` command below), the fix is

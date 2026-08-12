@@ -111,7 +111,7 @@ argo-cd:
 
     resources:
       requests:
-        cpu: 500m
+        cpu: 300m
         memory: 256Mi
       limits:
         memory: 1024Mi
